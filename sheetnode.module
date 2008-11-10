@@ -1,0 +1,131 @@
+<?php
+// $Id$
+
+function sheetnode_node_info() {
+  return array(
+    'sheetnode' => array(
+      'name' => t('Sheetnode'),
+      'module' => 'sheetnode',
+      'description' => t('A spreadsheet node.'),
+    ),
+  );
+}
+
+function sheetnode_perm() {
+  return array('create sheetnode', 'edit own sheetnode');
+}
+
+function sheetnode_access($op, $node) {
+  global $user;
+
+  if ($op == 'create') {
+    return user_access('create sheetnode');
+  }
+
+  if ($op == 'update' || $op == 'delete') {
+    return user_access('edit own sheetnode') && ($user->uid == $node->uid);
+  }
+}
+
+function sheetnode_delete(&$node) {
+  db_query('DELETE FROM {sheetnode} WHERE nid=%d', $node->nid);
+}
+
+function sheetnode_form(&$node) {
+  $type = node_get_types('type', $node);
+
+  // We need to define form elements for the node's title and body.
+  $form['title'] = array(
+    '#type' => 'textfield',
+    '#title' => check_plain($type->title_label),
+    '#required' => TRUE,
+    '#default_value' => $node->title,
+    '#weight' => -5
+  );
+      
+  // We want the body and filter elements to be adjacent. We could try doing
+  // this by setting their weights, but another module might add elements to the
+  // form with the same weights and end up between ours. By putting them into a
+  // sub-array together, we're able force them to be rendered together.
+  $form['body_filter']['body'] = array(
+    '#type' => 'textarea',
+    '#title' => check_plain($type->body_label),
+    '#default_value' => $node->body,
+    '#required' => FALSE
+  );
+  $form['body_filter']['filter'] = filter_form($node->format);
+
+  // SocialCalc sheet.
+  if ($node->nid) {
+    $value = _sheetnode_load($node->nid);
+  }
+  else {
+    $value = '';
+  }
+  $output = _sheetnode_inject($value);
+  $form['sheet']['view']['#value'] = $output; 
+  $form['sheet']['save'] = array('#type' => 'hidden');
+  return $form;
+}
+
+function _sheetnode_inject($value) {
+  drupal_add_js(drupal_get_path('module', 'sheetnode').'/socialcalc/socialcalc-3.js');
+  drupal_add_js(drupal_get_path('module', 'sheetnode').'/socialcalc/socialcalcconstants.js');
+  drupal_add_js(drupal_get_path('module', 'sheetnode').'/socialcalc/socialcalctableeditor.js');
+  drupal_add_js(drupal_get_path('module', 'sheetnode').'/socialcalc/formatnumber2.js');
+  drupal_add_js(drupal_get_path('module', 'sheetnode').'/socialcalc/formula1.js');
+  drupal_add_js(drupal_get_path('module', 'sheetnode').'/sheetnode.js');
+  drupal_add_css(drupal_get_path('module', 'sheetnode').'/socialcalc/socialcalc.css');
+  drupal_add_js(array('sheetnode' => array('value' => $value, 'imageprefix' => url(drupal_get_path('module', 'sheetnode').'/socialcalc/images/sc', NULL, NULL, TRUE))), 'setting');
+  return <<<EOS
+<div id="sheetview">
+<script language="javascript" type="text/javascript">
+  $(document).ready(function() {
+    Drupal.sheetnode.startUp(Drupal.settings.sheetnode.value, $('#sheetview')[0]);
+  });
+</script>
+</div>
+EOS;
+}
+
+function sheetnode_insert($node) {
+  _sheetnode_save($node->nid, $node->save);
+}
+
+function sheetnode_update($node) {
+  _sheetnode_save($node->nid, $node->save);
+}
+
+function sheetnode_view($node, $teaser = FALSE, $page = FALSE) {
+  $node = node_prepare($node, $teaser);
+  
+  // SocialCalc sheet.
+  $value = _sheetnode_load($node->nid);
+  $output = _sheetnode_inject($value);
+  $node->content['sheet']['#value'] = $output;
+
+  return $node;
+}
+
+function sheetnode_menu($may_cache) {
+  $items = array();
+  if ($may_cache) {
+    $items[] = array(
+      'path' => 'node/add/sheetnode',
+      'title' => t('Sheetnode'),
+      'access' => user_access('create sheetnode'),
+    );
+  }
+  return $items;
+}
+
+function _sheetnode_load($nid) {
+  $value = db_result(db_query("SELECT value FROM {sheetnode} WHERE nid=%d", $nid));
+  return ($value === FALSE ? '' : unserialize($value));
+}
+
+function _sheetnode_save($nid, $value) {
+  db_query("DELETE FROM {sheetnode} WHERE nid=%d", $nid);
+  db_query("INSERT INTO {sheetnode} (nid, value) VALUES (%d, '%s')", $nid, serialize($value));
+}
+

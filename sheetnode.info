@@ -1,0 +1,4 @@
+; $Id$
+name = Sheetnode
+description = "Spreadsheet node using <a href="http://plugins.jquery.com/project/Sheet">jQuery Sheet</a> plugin."
+package = Other
