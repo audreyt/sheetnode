@@ -69,19 +69,23 @@ function sheetnode_form(&$node) {
 }
 
 function _sheetnode_inject($value) {
-  drupal_add_js(drupal_get_path('module', 'sheetnode').'/socialcalc/socialcalc-3.js');
   drupal_add_js(drupal_get_path('module', 'sheetnode').'/socialcalc/socialcalcconstants.js');
+  drupal_add_js(drupal_get_path('module', 'sheetnode').'/socialcalc/socialcalc-3.js');
   drupal_add_js(drupal_get_path('module', 'sheetnode').'/socialcalc/socialcalctableeditor.js');
   drupal_add_js(drupal_get_path('module', 'sheetnode').'/socialcalc/formatnumber2.js');
   drupal_add_js(drupal_get_path('module', 'sheetnode').'/socialcalc/formula1.js');
+  drupal_add_js(drupal_get_path('module', 'sheetnode').'/socialcalc/socialcalcspreadsheetcontrol.js');
   drupal_add_js(drupal_get_path('module', 'sheetnode').'/sheetnode.js');
   drupal_add_css(drupal_get_path('module', 'sheetnode').'/socialcalc/socialcalc.css');
-  drupal_add_js(array('sheetnode' => array('value' => $value, 'imageprefix' => url(drupal_get_path('module', 'sheetnode').'/socialcalc/images/sc', NULL, NULL, TRUE))), 'setting');
+  drupal_add_js(array('sheetnode' => array('value' => $value, 
+                                           'imageprefix' => url(drupal_get_path('module', 'sheetnode').'/socialcalc/images/sc', NULL, NULL, TRUE),
+                                           'element' => 'sheetview',
+                                          )), 'setting');
   return <<<EOS
 <div id="sheetview">
 <script language="javascript" type="text/javascript">
   $(document).ready(function() {
-    Drupal.sheetnode.startUp(Drupal.settings.sheetnode.value, $('#sheetview')[0]);
+    Drupal.sheetnode.startUp();
   });
 </script>
 </div>
