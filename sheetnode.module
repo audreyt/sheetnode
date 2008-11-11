@@ -77,12 +77,13 @@ function _sheetnode_inject($value) {
   drupal_add_js(drupal_get_path('module', 'sheetnode').'/socialcalc/socialcalcspreadsheetcontrol.js');
   drupal_add_js(drupal_get_path('module', 'sheetnode').'/sheetnode.js');
   drupal_add_css(drupal_get_path('module', 'sheetnode').'/socialcalc/socialcalc.css');
+  drupal_add_css(drupal_get_path('module', 'sheetnode').'/sheetnode.css');
   drupal_add_js(array('sheetnode' => array('value' => $value, 
                                            'imageprefix' => url(drupal_get_path('module', 'sheetnode').'/socialcalc/images/sc', NULL, NULL, TRUE),
                                            'element' => 'sheetview',
                                           )), 'setting');
   return <<<EOS
-<div id="sheetview">
+<div class="sheetview" id="sheetview">
 <script language="javascript" type="text/javascript">
   $(document).ready(function() {
     Drupal.sheetnode.startUp();

@@ -1,0 +1,14 @@
+/*
+// $Id$
+*/
+
+.sheetview {
+  padding-top: 10px;
+}
+
+.sheetview table {
+  padding: 0;
+  margin: 0;
+  line-height: normal;
+}
+
