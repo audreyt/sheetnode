@@ -6,7 +6,7 @@
   padding-top: 10px;
 }
 
-.sheetview table {
+.sheetview table, .sheetview td, .sheetview th {
   padding: 0;
   margin: 0;
   line-height: normal;

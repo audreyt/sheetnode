@@ -105,9 +105,11 @@ function sheetnode_view($node, $teaser = FALSE, $page = FALSE) {
   $node = node_prepare($node, $teaser);
   
   // SocialCalc sheet.
-  $value = _sheetnode_load($node->nid);
-  $output = _sheetnode_inject($value);
-  $node->content['sheet']['#value'] = $output;
+  if (!$teaser) {
+    $value = _sheetnode_load($node->nid);
+    $output = _sheetnode_inject($value);
+    $node->content['sheet']['#value'] = $output;
+  }
 
   return $node;
 }
