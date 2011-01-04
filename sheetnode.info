@@ -1,4 +1,5 @@
 ; $Id$
 name = Sheetnode
-description = "Spreadsheet node using <a href="http://plugins.jquery.com/project/Sheet">jQuery Sheet</a> plugin."
-package = Other
+description = Spreadsheet node using <a href="http://www.socialtext.net/open/index.cgi?socialcalc">SocialCalc</a>.
+package = Sheetnode
+core = 6.x

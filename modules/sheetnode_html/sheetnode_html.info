@@ -1,0 +1,8 @@
+; $Id$
+name = Sheetnode HTML
+description = Provides HTML TABLE import/export support for Sheetnode.
+package = Sheetnode
+dependencies[] = sheetnode
+dependencies[] = querypath
+dependencies[] = format_number
+core = 6.x
