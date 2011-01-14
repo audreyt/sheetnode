@@ -33,9 +33,8 @@ Drupal.sheetnode.functionDrupalField = function(fname, operand, foperand, sheet)
     data: 'oid='+oid.value+'&entity='+escape(entity.value)+'&field='+escape(field.value),
     datatype: 'json',
     async: false,
-    success: function (data) {
-      var result = Drupal.parseJson(data);
-      operand.push(result);
+    success: function(data) {
+      operand.push(data);
     }
   });
 }

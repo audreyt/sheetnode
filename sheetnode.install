@@ -1,16 +1,36 @@
 <?php
 // $Id$
 
+/**
+ * Implementation of hook_install().
+ */
 function sheetnode_install() {
-  drupal_install_schema('sheetnode');
 }
 
-function sheetnode_uninstall() {
-  drupal_uninstall_schema('sheetnode');
-}
-
+/**
+ * Implementation of hook_schema().
+ */
 function sheetnode_schema() {
   return sheetnode_schema_6005();
+}
+
+/**
+ * Implementation of hook_field_schema().
+ */
+function sheetnode_field_schema($field) {
+  $columns = array(
+    'value' => array(
+      'description' => 'The serialized worksheet content.',
+      'type' => 'text',
+      'size' => 'big',
+      'not null' => TRUE,
+    ),
+  );
+  $indexes = array();
+  return array(
+    'columns' => $columns,
+    'indexes' => $indexes,
+  );
 }
 
 function sheetnode_schema_6001() {
@@ -188,36 +208,10 @@ function sheetnode_update_6004(&$sandbox) {
 }
 
 function sheetnode_schema_6005() {
-  $schema['sheetnode'] = array(
-    'fields' => array(
-      'nid' => array(
-        'description' => t('The primary identifier for a node.'),
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ),
-      'vid' => array(
-        'description' => t('The revision identifier for a node.'),
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ),
-      'value' => array(
-        'description' => t('The serialized worksheet content.'),
-        'type' => 'text',
-        'size' => 'big',
-        'not null' => TRUE,
-      ),
-    ),
-    'primary key' => array('vid'),
-    'indexes' => array(
-      'nid' => array('nid'),
-    ),
-  );
   $schema['sheetnode_template'] = array(
     'fields' => array(
       'tid' => array(
-        'description' => t('The primary identifier for the template.'),
+        'description' => 'The primary identifier for the template.',
         'type' => 'serial',
         'unsigned' => TRUE,
         'not null' => TRUE
@@ -227,17 +221,17 @@ function sheetnode_schema_6005() {
         'length' => '32',
         'default' => '',
         'not null' => TRUE,
-        'description' => t('The unique name of the template. May only be alphanumeric characters plus underscores.'),
+        'description' => 'The unique name of the template. May only be alphanumeric characters plus underscores.',
       ),
       'value' => array(
-        'description' => t('The serialized worksheet template content.'),
+        'description' => 'The serialized worksheet template content.',
         'type' => 'text',
         'size' => 'big',
         'not null' => TRUE,
         'serialize' => TRUE,
       ),
       'vid' => array(
-        'description' => t('The original node version for this template.'),
+        'description' => 'The original node version for this template.',
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => FALSE,

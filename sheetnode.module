@@ -2,6 +2,97 @@
 // $Id$
 
 /**
+ * Implements hook_field_info().
+ */
+function sheetnode_field_info() {
+  return array(
+    'field_sheet' => array(
+      'label' => t('Sheet'),
+      'description' => t('Store a spreadsheet in the database.'),
+      'default_widget' => 'field_sheet_widget',
+      'default_formatter' => 'field_sheet_formatter',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_field_validate().
+ */
+function sheetnode_field_validate($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
+}
+
+/**
+ * Implementation of hook_field_is_empty().
+ */
+function sheetnode_field_is_empty($item, $field) {
+  return FALSE;
+}
+
+/**
+ * Implementation of hook_field_formatter_info().
+ */
+function sheetnode_field_formatter_info() {
+  return array(
+    'field_sheet_formatter' => array(
+      'label' => t('Spreadsheet'),
+      'field types' => array('field_sheet'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function sheetnode_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+
+  switch ($display['type']) {
+    case 'field_sheet_formatter':
+      list($id, $vid, $bundle) = entity_extract_ids($entity_type, $entity);
+      foreach ($items as $delta => $item) {
+        $element[$delta]['#markup'] = _sheetnode_inject($item['value'], FALSE, NULL, array(
+          'entity-name' => $instance['entity_type'],
+          'oid' => $id, 
+        ));
+      }
+      break;
+  }
+  
+  return $element;
+}
+
+/**
+ * Implementation of hook_field_widget_info().
+ */
+function sheetnode_field_widget_info() {
+  return array(
+    'field_sheet_widget' => array(
+      'label' => t('Spreadsheet'),
+      'field types' => array('field_sheet'),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_field_widget_form().
+ */
+function sheetnode_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  switch ($instance['widget']['type']) {
+    case 'field_sheet_widget':
+      list($id, $vid, $bundle) = entity_extract_ids($instance['entity_type'], $form_state[$instance['entity_type']]);
+      $element['value'] = array(
+        '#type' => 'hidden',
+        '#suffix' => _sheetnode_inject($items[$delta]['value'], TRUE, 'edit-field-sheet input:hidden', array(
+          'entity-name' => $instance['entity_type'], 
+          'oid' => $id,
+        )),
+      );
+      break;
+  }
+  return $element;
+}
+
+/**
  * Implementation of hook_node_info().
  */
 function sheetnode_node_info() {
@@ -140,7 +231,7 @@ function _sheetnode_inject($value, $editing, $edit_id = 'edit-sheetsave', $conte
     'perm_edit_sheet_settings' => user_access('edit sheet settings') ? TRUE : FALSE,
     'context' => $context,
   )), 'setting');
-  drupal_add_js('Drupal.behaviors.sheetnode = function(context) { Drupal.sheetnode.start(context); }', 'inline');
+  drupal_add_js('Drupal.behaviors.sheetnode = { attach: function(context) { Drupal.sheetnode.start(context); } }', 'inline');
   return '<div class="sheetview" id="sheetview"></div>';
 }
 
@@ -400,131 +491,9 @@ function sheetnode_init() {
 }
 
 /**
- * Implementation of hook_content_extra_fields().
- */
-function sheetnode_content_extra_fields($type_name) {
-  $extra = array();
-  if ($type_name == 'sheetnode') {
-    $extra['sheet'] = array(
-      'label' => t('Sheetview'),
-      'description' => t('Sheetnode module form.'),
-      'weight' => -1,
-    );
-  }
-  return $extra;
-}
-
-/**
- * Implementation of hook_field_info().
- */
-function sheetnode_field_info() {
-  return array(
-    'sheetfield' => array(
-      'label' => t('Sheet'),
-      'description' => t('Store a spreadsheet in the database.'),
-      // 'content_icon' => 'icon_content_sheet.png',
-    ),
-  );
-}
-
-/**
- * Implementation of hook_field_settings().
- */
-function sheetnode_field_settings($op, $field) {
-  switch ($op) {
-  case 'form':
-    break;
-  case 'save':
-    break;
-  case 'database columns':
-    require_once(drupal_get_path('module', 'sheetnode') . '/sheetnode.install');
-    $schema = sheetnode_schema();
-    $columns['value'] = $schema['sheetnode']['fields']['value'];
-    return $columns;
-  case 'views data':
-    break;
-  }
-}
-
-/**
- * Implementation of hook_field().
- */
-function sheetnode_field($op, &$node, $field, &$items, $teaser, $page) {
-  switch ($op) {
-  case 'insert':
-  case 'update':
-    break;
-  }
-}
-
-/**
- * Implementation of hook_content_is_empty().
- */
-function sheetnode_content_is_empty($item, $field) {
-  // TODO
-  return FALSE;
-}
-
-/**
- * Implementation of hook_field_formatter_info().
- */
-function sheetnode_field_formatter_info() {
-  return array(
-    'default' => array(
-      'label' => t('Default'),
-      'field types' => array('sheetfield'),
-      'multiple values' => CONTENT_HANDLE_CORE,
-    ),
-    'socialcalc_date' => array(
-      'label' => t('SocialCalc'),
-      'field types' => array('date', 'datetime', 'datestamp'),
-      'multiple values' => CONTENT_HANDLE_CORE,
-    ),
-  );
-}
-
-/**
- * Implementation of hook_widget_info().
- */
-function sheetnode_widget_info() {
-  return array(
-    'sheetfield_spreadsheet' => array(
-      'label' => t('Spreadsheet'),
-      'field types' => array('sheetfield'),
-      'multiple values' => CONTENT_HANDLE_CORE,
-      'callbacks' => array(
-        'default value' => CONTENT_CALLBACK_DEFAULT,
-      ),
-    ),
-  );
-}
-
-/**
- * Implementation of hook_widget_settings().
- */
-function sheetnode_widget_settings($op, $widget) {
-  switch ($op) {
-  case 'form':
-    break;
-  case 'save':
-    break;
-  }
-}
-
-/**
- * Implementation of hook_widget().
- */
-function sheetnode_widget(&$form, &$form_state, $field, $items, $delta = 0) {
-  $element = array(
-    '#type' => $field['widget']['type'],
-    '#default_value' => isset($items[$delta]) ? $items[$delta] : '',
-  );
-  return $element;
-}
-
-/**
  * Implementation of FAPI hook_elements().
  */
+/*
 function sheetnode_elements() {
   return array(
     'sheetfield_spreadsheet' => array(
@@ -574,7 +543,7 @@ function theme_sheetnode_formatter_socialcalc_date($element) {
   $date = date_make_date($value, NULL, $field['type'], $field['granularity']);
   return socialcalc_import_date($date);
 }
-
+*/
 function _sheetnode_ajax_load($sheetname = NULL, $vid = NULL) {
   require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
 
@@ -626,54 +595,35 @@ function _sheetnode_ajax_load($sheetname = NULL, $vid = NULL) {
   exit();
 }
 
-function _sheetnode_ajax_field($oid = NULL, $entity = NULL, $field = NULL) {
-  if (!$oid) $oid = $_REQUEST['oid'];
-  if (!$entity) $entity = $_REQUEST['entity'];
-  if (!$field) $field = $_REQUEST['field'];
-  if (function_exists($entity . '_load')) {
-    $object = call_user_func($entity . '_load', $oid);
-    $value = NULL;
-    if ($object) {
-      // Try CCK field.
-      if ($entity == 'node' && module_exists('content')) {
-        $field_info = content_fields($field, $object->type);
-        if ($field_info) {
-          $field_info['display_settings']['label']['format'] = 'hidden';
-          $value = content_view_field($field_info, $object, FALSE, TRUE);
-        }
-      }
+function _sheetnode_ajax_field($oid = NULL, $entity_type = NULL, $field_name = NULL) {
+  if (empty($oid)) $oid = $_REQUEST['oid'];
+  if (empty($entity_type)) $entity_type = $_REQUEST['entity'];
+  if (empty($field_name)) $field_name = $_REQUEST['field'];
 
-      // Try rendered node field.
-      if (!$value && $entity == 'node') {
-        $node = drupal_clone($object);
-        $node = node_build_content($node);
-        if (isset($node->content[$field])) {
-          $value = drupal_render($node->content[$field]);
-        }
-      }
-
-      // Try raw object field.
-      if (!$value && isset($object->$field)) {
-        if (is_object($object->$field) || is_array($object->$field)) {
-          $value = print_r($object->$field, TRUE);
-        }
-        else {
-          $value = $object->$field;
-        }
-      }
-
-      // If found, send it back.
-      if ($value) {
-        require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
-        drupal_json(array(
-          'type' => is_numeric($value) ? 'n' : 'th',
-          'value' => $value,
-        ));
-        exit();
+  $entities = entity_load($entity_type, array($oid));
+  if (!empty($entities)) {
+    $entity = $entities[$oid];
+    list($id, $vid, $bundle) = entity_extract_ids($entity_type, $entity);
+    $field = field_info_field($field_name);
+    if (!empty($field)) {
+      $render_array = field_view_field($entity_type, $entity, $field_name, array('label' => 'hidden'));
+      $value = drupal_render($render_array);
+    }
+    else { // try extra fields
+      $extra_fields = field_info_extra_fields($entity_type, $bundle, 'form');
+      if (isset($extra_fields[$field_name])) {
+        $value = $entity->$field_name;
       }
     }
+    if (!empty($value)) {
+      drupal_json_output(array(
+        'type' => is_numeric($value) ? 'n' : 'th',
+        'value' => $value,
+      ));
+      exit();
+    }
   }
-  drupal_json(array('value' => '', 'type' => 'e#NAME?'));
+  drupal_json_output(array('value' => '', 'type' => 'e#NAME?'));
   exit();
 }
 
