@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 require_once(drupal_get_path('module', 'sheetnode') .'/socialcalc.inc');
 

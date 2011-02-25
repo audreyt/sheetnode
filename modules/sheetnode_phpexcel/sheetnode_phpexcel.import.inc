@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 function _sheetnode_phpexcel_import_form(&$form_state, $format) {
   $form['#attributes'] = array('enctype' => "multipart/form-data");

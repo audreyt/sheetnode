@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 class sheetnode_phpexcel_plugin_style extends sheetnode_feed_plugin_style {
   function init(&$view, &$display, $options = NULL) {

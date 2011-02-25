@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 class sheetnode_handler_field_date extends views_handler_field {
   function render($values) {

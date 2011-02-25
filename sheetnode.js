@@ -1,4 +1,3 @@
-// $Id$
 (function ($) {
 // START jQuery
 

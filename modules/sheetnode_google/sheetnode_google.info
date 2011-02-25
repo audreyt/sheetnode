@@ -1,4 +1,3 @@
-; $Id$
 name = Sheetnode Google Spreadsheets
 description = Provides Google Spreadsheets import/export support for Sheetnode.
 package = Sheetnode

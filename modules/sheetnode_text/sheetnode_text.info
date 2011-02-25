@@ -1,4 +1,3 @@
-; $Id$
 name = Sheetnode Text
 description = Provides text table import/export support for Sheetnode.
 package = Sheetnode

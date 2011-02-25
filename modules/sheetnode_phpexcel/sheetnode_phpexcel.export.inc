@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 function _sheetnode_phpexcel_export($format, $node) {
   require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
