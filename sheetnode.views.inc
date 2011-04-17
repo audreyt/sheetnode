@@ -118,7 +118,7 @@ function sheetnode_views_data() {
 function sheetnode_views_data_alter(&$data) {
   foreach ($data as $table_name => $table_info) {
     foreach ($table_info as $field_name => $field_info) {
-      if (!empty($field_info['field']) && $field_info['field']['handler'] == 'views_handler_field_date') {
+      if (!empty($field_info['field']['handler']) && $field_info['field']['handler'] == 'views_handler_field_date') {
         $sc = $field_info;
         $sc['real field'] = $field_name;
         $sc['title'] = $field_info['title'] . ' (SocialCalc)';
