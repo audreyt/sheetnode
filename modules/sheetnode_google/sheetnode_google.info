@@ -2,5 +2,5 @@ name = Sheetnode Google Spreadsheets
 description = Provides Google Spreadsheets import/export support for Sheetnode.
 package = Sheetnode
 dependencies[] = sheetnode 
-core = 6.x
+core = 7.x
 php = 5.2.4

@@ -1,0 +1,285 @@
+<?php
+
+/**
+ * @file
+ * sheetnode_rdf - this sub-module of the sheetnode module is designed to 
+ * allow data to be exported from the spreadsheet as RDF data that can be 
+ * queried from the site's SPARQL endpoint. 
+ * 
+ * @brief
+ * To export RDF data from the cells in a spreadsheet, the user needs to 
+ * designate an XML file for mapping. The format that the XML file needs to 
+ * have is documented in the README.txt file. 
+ *   
+ */
+
+/**
+ * This alters the default sheetnode form to include a reference to 
+ * a file that is used to map the sheetnode values to RDF tags. 
+ */
+function sheetnode_rdf_form_alter(&$form, &$form_state, $form_id) {
+  
+  if (isset($form['#node']))  {
+    if ($form['#node']->type == "sheetnode")   {
+      
+      $overall_description  = t('This is an optional value. If a file is uploaded, ');
+      $overall_description .= t('then it will be used to map values in the spreadsheet ');
+      $overall_description .= t('to RDF triples in the SPARQL endpoint. ');
+      $overall_description .= t('For a description of the expected file format, ');
+      $overall_description .= t('see the help section. ');
+      
+      $form['rdf_map'] = array(
+          '#type'         => 'fieldset',
+          '#title'        => t('RDF Mapping Description File'),
+          '#required'     => FALSE,
+          '#collapsible'  => TRUE,
+          '#collapsed'    => FALSE,
+          '#description'  => $overall_description,
+          '#weight'       => 50,
+      );
+
+      $node = $form['#node'];
+      $form['rdf_map']['rdf_map_filename'] = array(
+          '#type'         => 'textfield',
+          '#title'        => t('Filename'),
+          '#required'     => FALSE,
+          '#default_value'  => isset($node->rdf_map_filename) ? $node->rdf_map_filename : '',
+          '#description'  => t('Name of the existing document detailing the RDF mapping for this spreadsheet. Delete this filename to delete the RDF mapping for this spreadsheet. '),
+          '#weight'       => 53,
+      );
+      
+      $form['rdf_map']['rdf_map_upload'] = array(
+          '#type'         => 'file',
+          '#title'        => t('File upload'),
+          '#required'     => FALSE,
+          '#description'  => t('Select a file to use for mapping values in this spreadsheet to RDF vocabulary values.'),
+          '#weight'       => 55,
+      );
+    }
+  }
+}
+
+/**
+ * hook_node_load 
+ * 
+ * Load the RDF map file name if appropriate
+ */
+function sheetnode_rdf_node_load($nodes, $types)  {
+  
+  foreach ($nodes as $node)   {
+    if ($node->type == 'sheetnode') {
+      //  Load the RDF filename from the database
+      $query = db_select('sheetnode_rdf');
+      $query->fields('sheetnode_rdf', array('rdf_filename'));
+
+      $query->condition('nid', $node->nid);
+      $query->condition('vid', $node->vid);
+      $result = $query->execute();
+
+      $rdf_filename = '';
+      while ($record = $result->fetchAssoc()) {
+        $rdf_filename = $record['rdf_filename'];
+        $node->rdf_map_filename = $rdf_filename;
+      }
+    }
+  }
+}
+
+/**
+ * hook_node_validate 
+ * 
+ * Save the associated RDF map file here if appropriate
+ */
+function sheetnode_rdf_node_validate($node, $form, &$form_state)  {
+  //  Save the RDF filename to the database
+  if ($node->type == 'sheetnode') {
+    $rdf_file = file_save_upload('rdf_map_upload', array(
+        'file_validate_extensions' => array('txt rdf xml'),
+    ));
+    
+    //  If the file passed validation, then process it
+    if ($rdf_file)  {
+      //  Move the file into the permanent file system
+      $rdfPath = 'public://rdffiles/' . $rdf_file->filename;
+      if ($rdf_file = file_move($rdf_file, $rdfPath)) {
+        //  Save the filename for use in the submit handler
+        $form_state['storage']['rdf_file'] = $rdf_file;
+      }
+      else  {
+        form_set_error('file', t('Failed to upload the RDF mapping file to the sites file folder'));
+      }
+    }
+  }
+}
+
+/**
+ * hook_node_submit 
+ */
+function sheetnode_rdf_node_submit($node, $form, &$form_state)  {
+  
+  //  Save the RDF filename to the database
+  if ($node->type == 'sheetnode') {
+    if (isset($form_state['storage']['rdf_file']))  {
+      //  Get the file information of the uploaded file
+      $rdf_file = $form_state['storage']['rdf_file'];
+      //  We are done with the temporary file, so remove it from storage
+      unset($form_state['storage']['rdf_file']);
+      //  Make the storage of the file permanent
+      $rdf_file->status = FILE_STATUS_PERMANENT;
+      //  Save the file status
+      file_save($rdf_file);
+      
+      //  Update the database with this filename
+      $temp = parse_url($rdf_file->uri, PHP_URL_PATH);
+      $rdf_filename = substr($temp, 1);
+
+      //  First delete
+      $query = db_delete('sheetnode_rdf');
+      $query->condition('vid', $node->vid);
+      $query->execute();
+      
+      //  Then insert
+      $query = db_insert('sheetnode_rdf');
+      $query->fields(array(
+          'rdf_filename' => $rdf_filename,
+          'nid' => $node->nid,
+          'vid' => $node->vid,
+      ));
+      $query->execute();
+    }
+    else  {
+      //  Since there was no file to upload, then we check to see if the text
+      //  of the current filename is deleted. Deletion of the filename is how we
+      //  are designating the deletion of the association of the mapping file 
+      //  to the sheetnode.
+      if (strlen(trim($form_state['values']['rdf_map_filename'])) == 0)   {
+        //  If there is a current association then it should be deleted
+        //  Update the appropriate field in the database
+        $query = db_update('sheetnode_rdf');
+        $query->fields(array(
+              'rdf_filename' => '',
+        ));
+        $query->condition('vid', $node->vid);
+        $query->condition('nid', $node->nid);
+        $query->execute();
+      }
+    }
+  }
+}
+
+/**
+ * Called by hook_rdf_model in rdfx.module from RDFx package
+ */
+function sheetnode_rdf_rdf_model_alter($res, $context) {
+
+  require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
+
+  //  Get the wrapper from the node ID
+  $wrapper = entity_metadata_wrapper($context['type'], $context['data']);
+
+  //  Get entity data from the $wrapper
+  $entity = $wrapper->value();
+
+  if (isset($entity->type))   {
+    if ($entity->type == 'sheetnode')  {
+        
+      //  Populate the $sc array with the spreadsheet data
+      $sc = socialcalc_parse(_sheetnode_load($entity->nid, $entity->vid));
+        
+      //  This is a sheetnode type, so we can add RDF data to the RDF Store
+      $uri = $res->uri;
+  
+      /* 
+       * This is how we would do it if we want to start 
+       * using the vocabulary parser
+       *
+      //  Get the RDF mapping file for this spreadsheet
+      //  Todo - get this from the sheetnode form
+      module_load_include('inc', 'evoc', 'evoc.load_vocab');
+      
+//      $vocabulary_uri = "http://www.w3.org/2003/01/geo/wgs84_pos#";
+      $vocabulary_uri = "";
+      $vocabulary_prefix = "";
+      // @TODO - Get the sites URL in a more robust manner
+      $vocabulary_url = 'http://' . $_SERVER['HTTP_HOST'] . '/sites/default/files/rdffiles/';
+      $vocabulary_location = $vocabulary_url . $entity->rdf_map_filename;
+      $vocabulary = evoc_fetch_vocabulary($vocabulary_uri, $vocabulary_prefix, $vocabulary_location);
+      */
+      
+      if (isset($entity->rdf_map_filename) > 0)   {
+        if (strlen($entity->rdf_map_filename) > 0)  {
+
+          //  The mapping file is expected to be in the rdffiles subdirectory
+          $rdf_map_file = "public://rdffiles/" . $entity->rdf_map_filename;
+
+          //  Load the RDF mapping XML file into 
+          //  $spos (Subject-Predicate-Objects) parameter
+          $spos = simpleXML_load_file($rdf_map_file);
+
+          //  Loop through all of the Subject-Predicate-Object designators
+          $i = 0;
+          foreach ($spos as $subject)   {
+
+            //  The first parameter should be the subject
+            if (isset($subject->uri))   {
+              //  We assume the subject is a cell address
+              $cell_address = (string) $subject->uri;
+              $unique_uri = $uri . '#' . $cell_address;
+
+              //  Nested in the subject should be a predicate
+              if (isset($subject->predicate))   {
+                //  We assume the predicate is a vocabulary property
+                $predicate = $subject->predicate;
+                if (isset($predicate->vocab))   {
+                  $v = (string) $predicate->vocab;
+                  //  Get the uri for the prefixed name
+                  $vocab = $res->expandPName($v);
+                }
+
+                //  Nested within the predicate should be an object
+                if (isset($predicate->object))   {
+                  //  The object can be a uri, single literal or multiple
+                  //  literal values
+                  $object = $predicate->object;
+
+                  if (isset($object->uri))   {
+                    $temp = (string) $object->uri;
+                    $full_uri = $uri . "#" . $temp;
+                    $res->index[$unique_uri][$vocab][$i]['value']     = $full_uri;
+                    $res->index[$unique_uri][$vocab][$i]['type']      = 'uri';
+                    $res->index[$unique_uri][$vocab][$i]['datatype']  = '';
+                    $i++;
+                  }
+                  else if (isset($object->literal_multi))   {
+                    //  We can expect literal values separated by commas.
+                    $cell_address = (string) $object->literal_multi;
+                    $cell_value = $sc['sheet']['cells'][$cell_address]['datavalue'];
+                    //  Parse the cell value into multiple values
+                    $literals = array();
+                    $literals = explode(",", $cell_value);
+                    //  Each literal value should generate a triple.
+                    foreach ($literals as $literal)   {
+                      $res->index[$unique_uri][$vocab][$i]['value']     = trim($literal);
+                      $res->index[$unique_uri][$vocab][$i]['type']      = 'literal';
+                      $res->index[$unique_uri][$vocab][$i]['datatype']  = '';
+                      $i++;
+                    }
+                  }
+                  else if (isset($object->literal))   {
+                    $cell_address = (string) $object->literal;
+                    $cell_value = $sc['sheet']['cells'][$cell_address]['datavalue'];
+                    $res->index[$unique_uri][$vocab][$i]['value']     = trim($cell_value);
+                    $res->index[$unique_uri][$vocab][$i]['type']      = 'literal';
+                    $res->index[$unique_uri][$vocab][$i]['datatype']  = '';
+                    $i++;
+                  }
+                }
+              }
+            }   //  if (isset($subject->predicate))
+          }
+        }   //  if (strlen($entity->rdf_map_filename) > 0)
+      }
+    }
+  }
+}
+

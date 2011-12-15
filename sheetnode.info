@@ -1,4 +1,5 @@
 name = Sheetnode
-description = Spreadsheet node using <a href="http://www.socialtext.net/open/index.cgi?socialcalc">SocialCalc</a>.
+description = Spreadsheet node using <a href="http://www.socialtext.net/opn/index.cgi?socialcalc">SocialCalc</a>.
 package = Sheetnode
 core = 7.x
+

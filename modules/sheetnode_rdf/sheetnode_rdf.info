@@ -1,0 +1,6 @@
+name = Sheetnode RDF
+description = Provides RDF export support for Sheetnode.
+package = Sheetnode
+dependencies[] = sheetnode
+dependencies[] = rdfx
+core = 7.x

@@ -1,0 +1,52 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the sheetnode_rdf module.
+ */
+
+function sheetnode_rdf_enable() {
+  //  Check if table exists, if not install the schema
+  if (db_table_exists('sheetnode_rdf')  == FALSE) {
+    drupal_install_schema('sheetnode_rdf');
+  }
+}
+
+/**
+* Implements hook_schema().
+*/
+function sheetnode_rdf_schema() {
+
+  $schema = array();
+
+  $schema['sheetnode_rdf'] = array(
+     'description' => t('Stores data concerning exporting RDF data from a sheetnode'),
+     'fields' => array(
+        'nid' => array(
+          'type'             => 'int',
+          'unsigned'         => TRUE,
+          'not null'         => TRUE,
+          'description'      => t('The primary identifier for the sheetnode.'),
+         ),
+        'vid' => array(
+          'type'             => 'int',
+          'unsigned'         => TRUE,
+          'not null'         => TRUE,
+          'description'      => t('The revision identifier for the sheetnode.'),
+         ),
+        'rdf_filename'      => array(
+          'type'             => 'varchar',
+          'length'           => 255,
+          'not null'         => TRUE,
+          'description'      => t('The name of the file that maps the spreadsheet cells to RDF tags'),
+         ),
+     ),
+     'primary key' => array('vid'),
+     'indexes' => array(
+        'nid' => array('nid')
+     ),
+   );
+
+  return $schema;
+}
+

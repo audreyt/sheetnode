@@ -1,0 +1,91 @@
+<?php
+// $Id
+
+/**
+ * @file
+ * Extend the sheetnode node type so that it can have a custom interface for 
+ * an external custom module. This is primarily a stub that can be 
+ * customized per the needs of the external custom module. 
+ * 
+ * For example, instead of showing the sheetnode from the URL
+ * http://example.com/sheetnode/NNN where NNN is the node number, for this
+ * interface you would use:
+ * http://example.com/sheetcustom/NNN
+ * 
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function sheetnode_custom_menu() {
+  $items = array();
+
+  $items['sheetcustom/%'] = array(
+      'page callback'     => 'sheetnode_custom_display',
+      'page arguments'    => array(1),
+      'access arguments'  => array('access content'),
+      'title'             => 'Spreadsheet for Custom Module',
+  );
+
+  $items['sheetcustom/update/%'] = array(
+    'page callback'       => 'sheetnode_custom_update',
+    'page arguments'      => array(2),
+    'access arguments'    => array('access content'),
+    'title'               => 'Update Spreadsheet for Custom Module',
+  );
+
+  return $items;
+}
+
+/**
+ * Custom callback that displays one sheetnode. This function can be 
+ * customized according to the needs of a custom module that needs an 
+ * interface to the sheetnode module. 
+ * 
+ * In this case there is a link to edit the displayed sheetnode. After editing, 
+ * it is then returned back to this spreadsheet interface. There is also an 
+ * additional link that is assumed to be for updating something in an external 
+ * custom module based on this spreadsheet. This should be altered as 
+ * appropriate to meet the needs of an external module. 
+ *
+ * @return
+ * A build array
+ */
+function sheetnode_custom_display($nid = NULL) {
+
+  $manage['sheetnode'] = array(
+      '#prefix' => '<div><div style="float: left;">',
+      '#type' => 'markup',
+      '#markup' => "<a href='/node/" . $nid . "/edit?destination=/sheetcustom/" . $nid . "'>Edit this spreadsheet</a>",
+      '#suffix' => '</div>',
+  );
+
+  $links['sheetnode'] = array(
+      '#prefix' => '<div style="float: right;">',
+      '#type' => 'markup',
+      '#markup' => "<a href='/sheetcustom/update/" . $nid . "'>Update custom module from spreadsheet</a>",
+      '#suffix' => '</div><div style="clear:both;"></div></div>',
+  );
+
+  $build = array();
+
+  $node = node_load($nid);
+  $node->content['links'] = array(
+      '#links' => $links,
+      '#attributes' => array('class' => array('links', 'inline')),
+  );
+
+  $build[] = $manage;
+  $build[] = $links;
+  $build[] = node_view($node, 'sheetnode');
+
+  return $build;
+}
+
+/**
+ *  Proxy function to update something in a custom module.
+ */
+function sheetnode_custom_update($nid) {
+
+  // your_custom_module_call_here($nid);
+}

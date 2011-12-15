@@ -1,281 +1,146 @@
 <?php
 
 /**
- * Implementation of hook_install().
+ * @file
+ * Install, update and uninstall functions for the sheetnode module.
+ */
+
+/**
+ * Implements hook_install().
  */
 function sheetnode_install() {
+  // use get_t() to get the name of our localization function for translation
+  // during install, when t() is not available.
+  $t = get_t();
+
+  // Define the node type.
+  $sheetnode = array(
+    'type' => 'sheetnode',
+    'name' => $t('Sheetnode'),
+    'base' => 'node_content',
+    'description' => $t('This is a sheetnode node with serialized spreadsheet data'),
+    'body_label' => $t('Description of sheetnode instance')
+  );
+
+  // Complete the node type definition by setting any defaults not explicitly
+  // declared above.
+  // http://api.drupal.org/api/function/node_type_set_defaults/7
+  $content_type = node_type_set_defaults($sheetnode);
+  node_add_body_field($content_type, $label='Description');
+
+  // Save the content type
+  node_type_save($content_type);
+
+  // Load the instance definition for our content type's body
+  // http://api.drupal.org/api/function/field_info_instance/7
+  $body_instance = field_info_instance('node', 'body', 'sheetnode');
+
+  // Save our changes to the body field instance.
+  // http://api.drupal.org/api/function/field_update_instance/7
+  field_update_instance($body_instance);
 }
 
 /**
- * Implementation of hook_schema().
+ * Implements hook_uninstall().
  */
+function sheetnode_uninstall() {
+  // Gather all the sheetnode content that might have been created while this
+  // module was enabled.  Simple selects still use db_query().
+  // http://api.drupal.org/api/function/db_query/7
+  $sql = 'SELECT nid FROM {node} n WHERE n.type = :type';
+  $result = db_query($sql, array(':type' => 'sheetnode'));
+  $nids = array();
+  foreach ($result as $row) {
+    $nids[] = $row->nid;
+  }
+
+  // Delete all the nodes at once
+  // http://api.drupal.org/api/function/node_delete_multiple/7
+  node_delete_multiple($nids);
+
+  // Loop over any remaining field instances attached to the sheetnode
+  // content type (such as the body field) and delete them individually.
+  // http://api.drupal.org/api/function/field_delete_field/7
+  $instances = field_info_instances('node', 'sheetnode');
+  foreach ($instances as $instance_name => $instance) {
+    field_delete_instance($instance);
+  }
+
+  // Delete our content type
+  // http://api.drupal.org/api/function/node_type_delete/7
+  node_type_delete('sheetnode');
+
+  // Purge all field information
+  // http://api.drupal.org/api/function/field_purge_batch/7
+  field_purge_batch(1000);
+}
+
+
+/**
+* Implements hook_schema().
+*/
 function sheetnode_schema() {
-  return sheetnode_schema_6005();
-}
-
-/**
- * Implementation of hook_field_schema().
- */
-function sheetnode_field_schema($field) {
-  $columns = array(
-    'value' => array(
-      'description' => 'The serialized worksheet content.',
-      'type' => 'text',
-      'size' => 'big',
-      'not null' => TRUE,
-    ),
-  );
-  $indexes = array();
-  return array(
-    'columns' => $columns,
-    'indexes' => $indexes,
-  );
-}
-
-function sheetnode_schema_6001() {
-  $schema['sheetnode'] = array(
-    'fields' => array(
-      'nid' => array(
-        'description' => t('The primary identifier for a node.'),
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE
-      ),
-      'value' => array(
-        'description' => t('The serialized worksheet content.'),
-        'type' => 'text',
-        'size' => 'big',
-        'not null' => TRUE,
-      ),
-    ),
-    'primary key' => array('nid'),
-  );
-  $schema['sheetnode_template'] = array(
-    'fields' => array(
-      'tid' => array(
-        'description' => t('The primary identifier for the template.'),
-        'type' => 'serial',
-        'unsigned' => TRUE,
-        'not null' => TRUE
-      ),
-      'name' => array(
-        'type' => 'varchar',
-        'length' => '32',
-        'default' => '',
-        'not null' => TRUE,
-        'description' => 'The unique name of the template. May only be alphanumeric characters plus underscores.',
-      ),
-      'value' => array(
-        'description' => t('The serialized worksheet template content.'),
-        'type' => 'text',
-        'size' => 'big',
-        'not null' => TRUE,
-        'serialize' => TRUE,
-      ),
-    ),
-    'primary key' => array('tid'),
-    'unique keys' => array(
-      'key_name' => array('name'),
-    ),
-  );
-  return $schema;
-}
-
-function sheetnode_update_6001(&$sandbox) {
-  $ret = array();
-  $schema = sheetnode_schema_6001();
-  db_create_table($ret, 'sheetnode_template', $schema['sheetnode_template']);
-  db_change_field($ret, 'sheetnode', 'nid', 'nid', $schema['sheetnode']['fields']['nid']);
-  return $ret;
-}
-
-function sheetnode_update_6002(&$sandbox) {
-  drupal_load('module', 'sheetnode');
-  require_once(drupal_get_path('module', 'sheetnode') .'/socialcalc.inc');
-  $ret = array();
-  $sig = 'version:1.5';
-  $siglen = strlen($sig);
-  $result = db_query("SELECT * FROM {sheetnode}");
-  while ($sheetnode = db_fetch_array($result)) {
-    $value = unserialize($sheetnode['value']);
-    if (strncmp($value, $sig, $siglen) === 0) {
-      $sheet = socialcalc_parse_sheet($value);
-      $sc = array(
-        'sheet' => $sheet,
-        'edit' => socialcalc_default_edit($sheet),
-        'audit' => socialcalc_default_audit($sheet),
-      );
-      $sql = "UPDATE {sheetnode} SET value='%s' WHERE nid=%d";
-      $ret[] = array('success' => FALSE !== db_query($sql, serialize(socialcalc_save($sc)), $sheetnode['nid']), 'query' => check_plain($sql));
-    }
-  }
-  $result = db_query("SELECT * FROM {sheetnode_template}");
-  while ($template = db_fetch_array($result)) {
-    $value = unserialize($template['value']);
-    if (strncmp($value, $sig, $siglen) === 0) {
-      $sheet = socialcalc_parse_sheet($value);
-      $sc = array(
-        'sheet' => $sheet,
-        'edit' => socialcalc_default_edit($sheet),
-        'audit' => socialcalc_default_audit($sheet),
-      );
-      $sql = "UPDATE {sheetnode_template} SET value='%s' WHERE tid=%d";
-      $ret[] = array('success' => FALSE !== db_query($sql, serialize(socialcalc_save($sc)), $template['tid']), 'query' => check_plain($sql));
-    }
-  }
-  return $ret;
-}
-
-function sheetnode_schema_6003() {
-  $schema['sheetnode'] = array(
-    'fields' => array(
-      'nid' => array(
-        'description' => t('The primary identifier for a node.'),
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE
-      ),
-      'vid' => array(
-        'description' => t('The revision identifier for a node.'),
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE
-      ),
-      'value' => array(
-        'description' => t('The serialized worksheet content.'),
-        'type' => 'text',
-        'size' => 'big',
-        'not null' => TRUE,
-      ),
-    ),
-    'primary key' => array('vid'),
-    'indexes' => array(
-      'nid' => array('nid'),
-    ),
-  );
-  $schema['sheetnode_template'] = array(
-    'fields' => array(
-      'tid' => array(
-        'description' => t('The primary identifier for the template.'),
-        'type' => 'serial',
-        'unsigned' => TRUE,
-        'not null' => TRUE
-      ),
-      'name' => array(
-        'type' => 'varchar',
-        'length' => '32',
-        'default' => '',
-        'not null' => TRUE,
-        'description' => t('The unique name of the template. May only be alphanumeric characters plus underscores.'),
-      ),
-      'value' => array(
-        'description' => t('The serialized worksheet template content.'),
-        'type' => 'text',
-        'size' => 'big',
-        'not null' => TRUE,
-        'serialize' => TRUE,
-      ),
-    ),
-    'primary key' => array('tid'),
-    'unique keys' => array(
-      'key_name' => array('name'),
-    ),
-  );
-  return $schema;
-}
-
-function sheetnode_update_6003(&$sandbox) {
-  $ret = array();
-  $schema = sheetnode_schema_6003();
-  db_add_field($ret, 'sheetnode', 'vid', $schema['sheetnode']['fields']['vid']);
-  
-  // set the vid of all existing sheetnode rows to the latest node_revisions.vid.
-  db_query('UPDATE {sheetnode} SET {sheetnode}.vid=(SELECT MAX(vid) FROM {node_revisions} WHERE {node_revisions}.nid={sheetnode}.nid GROUP BY {sheetnode}.nid)');
-  
-  db_drop_primary_key($ret, 'sheetnode');
-  db_add_primary_key($ret, 'sheetnode', array('vid'));
-  db_add_index($ret, 'sheetnode', 'nid', array('nid'));
-  return $ret;
-}
-
-function sheetnode_update_6004(&$sandbox) {
-  $ret = array();
-  db_drop_unique_key($ret, 'sheetnode', 'nid');
-  if (!$ret[0]['success']) return array();
-  db_add_index($ret, 'sheetnode', 'nid', array('nid'));
-  return $ret;
-}
-
-function sheetnode_schema_6005() {
-  $schema['sheetnode_template'] = array(
-    'fields' => array(
-      'tid' => array(
-        'description' => 'The primary identifier for the template.',
-        'type' => 'serial',
-        'unsigned' => TRUE,
-        'not null' => TRUE
-      ),
-      'name' => array(
-        'type' => 'varchar',
-        'length' => '32',
-        'default' => '',
-        'not null' => TRUE,
-        'description' => 'The unique name of the template. May only be alphanumeric characters plus underscores.',
-      ),
-      'value' => array(
-        'description' => 'The serialized worksheet template content.',
-        'type' => 'text',
-        'size' => 'big',
-        'not null' => TRUE,
-        'serialize' => TRUE,
-      ),
-      'vid' => array(
-        'description' => 'The original node version for this template.',
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => FALSE,
-      ),
-    ),
-    'primary key' => array('tid'),
-    'unique keys' => array(
-      'key_name' => array('name'),
-    ),
-  );
-  return $schema;
-}
-
-function sheetnode_update_6005(&$sandbox) {
-  $ret = array();
-  $schema = sheetnode_schema_6005();
-  db_add_field($ret, 'sheetnode_template', 'vid', $schema['sheetnode_template']['fields']['vid']);
-  return $ret;
-}
-
-function sheetnode_update_6006(&$sandbox) {
-  return array();
-}
-
-/**
- * New file structure: inform user.
- */
-function sheetnode_update_6007(&$sandbox) {
-  $files = array(
-    "php_java_bridge*",
-    "sheetnode_google*",
-    "sheetnode_xls*",
-    "sheetnode_ods*",
-  );
-  $msg = t('
-    The files in the Sheetnode module have been reorganized as of update 6007. 
-    Please delete the following files from the main Sheetnode directory at !path: 
-    <ul>!files</ul>
-  ');
-  $args = array(
-    '!path' => drupal_get_path('module', 'sheetnode'),
-    '!files' => "\n<li>" . implode("</li>\n<li>", $files) . '</li>',
-  );
-  watchdog('sheetnode', $msg, $args, WATCHDOG_ALERT);
-  drupal_set_message(t($msg, $args), 'warning');
-  return array();
-}
-
+   $schema['sheetnode'] = array(
+     'description' => t("Stores data for the sheetnode data type, including serialized spreadsheet data"),
+     'fields' => array(
+        'nid' => array(
+          'type'             => 'int',
+          'unsigned'         => TRUE,
+          'not null'         => TRUE,
+          'description'      => t("The primary identifier for a node."),
+         ),
+        'vid' => array(
+          'type'             => 'int',
+          'unsigned'         => TRUE,
+          'not null'         => TRUE,
+          'description'      => t("The revision identifier for a node."),
+         ),
+        'value'        => array(
+         'type'             => 'text',
+         'size'             => 'big',
+         'not null'         => TRUE,
+         'description'      => t('The serialized worksheet content.'),
+         ),
+     ),
+     'primary key' => array('vid'),
+     'indexes' => array(
+        'nid' => array('nid')
+     ),
+   );
+   $schema['sheetnode_template'] = array(
+     'description' => t("Stores parameters for a sheetnode template"),
+     'fields' => array(
+        'tid'           => array(
+          'type'             => 'serial',
+          'unsigned'         => TRUE,
+          'not null'         => TRUE,
+          'description'      => t("The primary identifier for the template."),
+         ),
+        'vid'           => array(
+          'type'             => 'int',
+          'unsigned'         => TRUE,
+          'not null'         => TRUE,
+          'default'          => 0,
+          'description'      => t("The original node version for this template."),
+         ),
+        'name'          => array(
+         'type'             => 'varchar',
+         'length'           => '32',
+         'default'          => '',
+         'not null'         => TRUE,
+         'description'      => t('The unique name of the template. May only be alphanumeric characters plus underscores.'),
+         ),
+        'value'         => array(
+         'type'             => 'text',
+         'size'             => 'big',
+         'not null'         => TRUE,
+         'description'      => t('The serialized worksheet template content.'),
+         ),
+     ),
+     'primary key' => array('tid'),
+     'unique keys' => array(
+        'key_name' => array('name')
+     ),
+   );
+   return $schema;
+ }

@@ -1,12 +1,23 @@
 <?php
 
-function _sheetnode_phpexcel_import_form(&$form_state, $format) {
+/**
+ *
+ * @param type $format
+ * @param type $form_state
+ * @return string 
+ */
+function _sheetnode_phpexcel_import_form($format, &$form_state) {
   $form['#attributes'] = array('enctype' => "multipart/form-data");
+  
+  // @todo - This is a hack - is this the best way to get the format to 
+  // be imported?
+  $format = $form_state['build_info']['args'][0];
+
   $plugins = sheetnode_phpexcel_get_plugins();
   $form['#plugin'] = $plugins[$format];
   $form['import'] = array(
     '#type' => 'file',
-    '#title' => t('!format to import', array('!format' => $form['#plugin']['long-name'])),
+    '#title' => filter_xss(t('!format to import', array('!format' => $form['#plugin']['long-name']))),
     '#size' => 40,
   );
   $form['submit'] = array(
@@ -16,6 +27,12 @@ function _sheetnode_phpexcel_import_form(&$form_state, $format) {
   return $form;
 }
 
+/**
+ *
+ * @param type $form
+ * @param type $form_state
+ * @return type 
+ */
 function _sheetnode_phpexcel_import_form_validate($form, &$form_state) {
   $source = $_FILES['files']['name']['import'];
 
@@ -52,68 +69,202 @@ function _sheetnode_phpexcel_import_form_validate($form, &$form_state) {
   // TODO: Validate that file is of type $form['#plugin'].
 }
 
+/**
+ *
+ * @global type $user
+ * @param type $form
+ * @param array $form_state  
+ */
 function _sheetnode_phpexcel_import_form_submit($form, &$form_state) {
+  require_once(variable_get('sheetnode_phpexcel_library_path', '') . '/Classes/PHPExcel.php');
+  $validators = array();
+  $validators['file_validate_extensions'] = "";
+  $file = file_save_upload('import', $validators);  // Set array to allow the XLSX extension or an empty array to allow all
+  $batch = array();
+
+  sheetnode_phpexcel_batch_import(array($file->uri), NULL, '_sheetnode_phpexcel_import_callback', $form_state);
+}
+
+/**
+ *
+ * @global type $user
+ * @param type $node
+ * @param array $params  
+ * @param array $context
+ */
+function _sheetnode_phpexcel_import_callback($node, $params, &$context) {
+  if ($context['sandbox']['total'] > 1 && module_exists('book')) {
+    // Create book if none present.
+    if (empty($context['sandbox']['book'])) {
+      global $user;
+      $book = new StdClass;
+      $book->type = 'book';
+
+      node_object_prepare($book);
+
+      $book->title = $workbook->getProperties()->getTitle();
+      if (empty($book->title)) {
+        $book->title = t('Untitled Workbook');
+      }
+      $book->name = $user->name;
+      $book->book['bid'] = 'new';
+      $book->book['plid'] = $book->book['mlid'] = NULL;
+
+      // Let other modules alter the book or do other work.
+      drupal_alter('sheetnode_import', $book, $params, $context);
+
+      $book = node_submit($book);
+      node_save($book);
+      if ($book->nid) {
+        $context['results'][] = $book->nid;
+        $context['sandbox']['book'] = $book;
+      }
+    }
+
+    // Mark the book as parent to the sheetnode.
+    $book = $context['sandbox']['book'];
+    $node->book['bid'] = $book->nid;
+    $node->book['plid'] = $book->book['mlid'];
+    $node->book['module'] = 'book';
+    $node->book['weight'] = $context['sandbox']['current'] - 1;
+  }
+}
+
+/**
+ * 
+ * @global type $user
+ * @param type $filename
+ * @param type $callback
+ * @param type $params - see below for how this is used.
+ * @param type $context 
+ */
+function _sheetnode_phpexcel_batch_import_file($filename, $callback, $params, &$context) {
   require_once(variable_get('sheetnode_phpexcel_library_path', '') . '/Classes/PHPExcel.php');
   module_load_include('inc', 'node', 'node.pages');
   set_time_limit(0);
   global $user;
 
-  // Open sheet file.
-  // TODO: What to do with other properties?
-  $workbook = PHPExcel_IOFactory::load($_FILES['files']['tmp_name']['import']);
-  $title = $workbook->getProperties()->getTitle();
-  if (empty($title)) {
-    $title = pathinfo($_FILES['files']['name']['import'], PATHINFO_FILENAME);
-  }
-  $description = $workbook->getProperties()->getDescription();
-
-  // Create a book if there are more than one sheet.
-  $numsheets = $workbook->getSheetCount();
-  if ($numsheets > 1 && module_exists('book')) {
-    $node = array('type' => 'book');
-    $form_state_book = array();
-    $form_state_book['values']['title'] = $title;
-    $form_state_book['values']['body'] = $description;
-    $form_state_book['values']['name'] = $user->name;
-    $form_state_book['values']['op'] = t('Save');
-    $form_state_book['values']['book']['bid'] = 'new';
-    $form_state_book['values']['book']['plid'] = -1;
-    $form_state_book['values']['book']['weight'] = 0;
-    drupal_execute('book_node_form', $form_state_book, (object)$node);
-    $book = node_load($form_state_book['nid']);
-  }
-
-  // Import all sheets.
-  for ($s = 0; $s < $numsheets; $s++) {
-    $sheet = $workbook->getSheet($s);
-    $node = array('type' => 'sheetnode');
-    $form_state_node = array();
-    $form_state_node['values']['title'] = (empty($book) ? $title .' > ' : '') . $sheet->getTitle();
-    $form_state_node['values']['body'] = empty($book) ? $description : '';
-    $form_state_node['values']['name'] = $user->name;
-    $form_state_node['values']['sheetsave'] = _sheetnode_phpexcel_import_do($workbook, $sheet);
-    $form_state_node['values']['op'] = t('Save');
-    if (!empty($book)) { // insert inside the book
-      $form_state_node['values']['book']['bid'] = $book->nid;
-      $form_state_node['values']['book']['plid'] = $book->book['mlid'];
-      $form_state_node['values']['book']['weight'] = $s;
+  //  We have "temporary://" in the filename, but Drupal doesn't replace
+  //  that in subsequent processing. Therefore, we replace the "temporary://"
+  //  in the filename here so that the file will get processed correctly. 
+  $temp_dir = file_directory_temp() . '/';
+  $filename = str_replace("temporary://", $temp_dir, $filename);
+  
+  //  Use $params as a filter (if set) to load only sheet(s) whose titles 
+  //  match the given names (case-insensitive matching). If this is the case, 
+  //  $params has been set from the $form_state array. We expect the following
+  //  protocol for the parameters. 
+  //  $params['build_info']['args'][1] holds number of sheets to import (=n) 
+  //  and then the next n values hold the names of the sheet labels to be 
+  //  matched. Finally, later processing checks to see if there is another 
+  //  parameter following the last filter sheet name. If there is another 
+  //  parameter (e.g., 'dest'), then it is used for the final destination URL, 
+  //  such that the final destination URL will be http://example.com/dest/nid. 
+  $num_filter_sheets = 0;
+  $filter_sheet_names = array();
+  
+  if (isset($params['build_info']['args'][1]))  {
+    if (is_numeric($params['build_info']['args'][1]))  {
+      $num_filter_sheets = $params['build_info']['args'][1];
     }
-    // Allow other modules to modify the new node's creation parameters.
-    // Hook signature: hook_sheetnode_alter(&$form_state_node, $form, $form_state);
-    drupal_alter('sheetnode', $form_state_node, $form, $form_state);
-
-    drupal_execute('sheetnode_node_form', $form_state_node, (object)$node);
   }
 
-  // If more than one sheet, create a book to hold them
-  if (!empty($book)) {
-    $form_state['redirect'] = 'node/'. $book->nid;
+  //  Fill the $filter_sheet_names array with the sheet names that will be 
+  //  used for filtering
+  $i = 0; 
+  $n = 2;
+  while ($n < $num_filter_sheets + 2) {
+    if (isset($params['build_info']['args'][$n]))  {
+      $filter_sheet_names[$i] = $params['build_info']['args'][$n];
+      $i++;
+    }
+    $n++;
   }
+
+  $last_node_id = 0;
+    
+  if (empty($context['sandbox']['workbook'])) {
+    // Load workbook and get number of worksheets.
+    $context['sandbox']['workbook'] = $workbook = PHPExcel_IOFactory::load($filename);
+    $context['sandbox']['total'] = $workbook->getSheetCount();
+    $context['sandbox']['current'] = 0;
+  } 
   else {
-    $form_state['redirect'] = 'node/'. $form_state_node['nid'];
+    // Create sheetnode out of current sheet.
+    $workbook = PHPExcel_IOFactory::load($filename);
+    $context['sandbox']['workbook'] = $workbook;
+    $sheet = $workbook->getSheet($context['sandbox']['current'] - 1);
+    
+    // Import sheet if $num_filter_sheets = 0 or title of current sheet
+    // matches a value in the array of $filter_sheet_names.
+    if (($num_filter_sheets == 0) || (_sheetnode_phpexcel_title_matches($sheet->getTitle(), $filter_sheet_names)))  {
+
+      $node = new StdClass;
+      $node->type = 'sheetnode';
+
+      node_object_prepare($node);
+
+      //  Set the imported node name as (short) filename >> sheetname 
+      $pos = strrpos($filename, '/');
+      $prefix = substr($filename, $pos + 1);
+      $node->title = $prefix . ' >> ' . $sheet->getTitle();
+      $node->name = $user->name;
+      $node->sheetnode['value'] = _sheetnode_phpexcel_import_do($workbook, $sheet);
+      $node->sheetnode['template'] = NULL;
+
+      // Let other modules alter the sheetnode or do other work.
+      if (!empty($callback) && function_exists($callback)) {
+        $callback($node, $params, $context);
+      }
+      drupal_alter('sheetnode_import', $node, $params, $context);
+
+      // Save the sheetnode.
+      $node = node_submit($node);
+      node_save($node);
+      if (!empty($node->nid)) {
+        $context['results'][] = $node->nid;
+        _sheetnode_save($node->nid, $node->vid, $node->sheetnode['value']);
+        
+        //  If the calling function set the redirect, then set it in the batch 
+        //  array. For example, if final parameter is 'dest', then it is used 
+        //  for the final destination URL, such that the final destination URL 
+        //  will be http://example.com/dest/nid, where nid is the current node ID.
+        if (isset($params['build_info']['args'][$n]))  {
+          $batch = & batch_get();
+          $batch['redirect'] = $params['build_info']['args'][$n] . '/' . $node->nid;
+        }
+      }
+    }
+  }
+
+  // Update progress information.
+  if ($context['sandbox']['current'] < $context['sandbox']['total']) {
+    $sheet = $workbook->getSheet($context['sandbox']['current']);
+    $context['message'] = t('Now processing sheet %sheet.', array('%sheet' => $sheet->getTitle()));
+    $context['finished'] = $context['sandbox']['current'] / $context['sandbox']['total'];
+    $context['sandbox']['current']++;
   }
 }
 
+/**
+ *
+ * @param type $success
+ * @param type $results
+ * @param type $operations
+ */
+function _sheetnode_phpexcel_batch_import_finished($success, $results, $operations) {
+  $batch = & batch_get();
+  if (empty($batch['redirect']) && !empty($results)) {
+    drupal_goto('node/' . $results[0]);
+  }
+}
+
+/**
+ *
+ * @param type $workbook
+ * @param type $sheet
+ * @return type 
+ */
 function _sheetnode_phpexcel_import_do($workbook, $sheet) {
   require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
   $sc = array(); // SocialCalc array structure
@@ -124,9 +275,15 @@ function _sheetnode_phpexcel_import_do($workbook, $sheet) {
   if ($defaultcolwidth > 0) {
     $sc['attribs']['defaultcolwidth'] = $defaultcolwidth;
   }
+  else {
+    $sc['attribs']['defaultcolwidth'] = 30;
+  }
   $defaultrowheight = $sheet->getDefaultRowDimension()->getRowHeight();
   if ($defaultrowheight > 0) {
     $sc['attribs']['defaultrowheight'] = $defaultrowheight;
+  }
+  else {
+    $sc['attribs']['defaultrowheight'] = 20;
   }
   $sc['attribs']['lastrow'] = $sheet->getHighestRow();
   $sc['attribs']['lastcol'] = PHPExcel_Cell::columnIndexFromString($sheet->getHighestColumn());
@@ -191,6 +348,13 @@ function _sheetnode_phpexcel_import_do($workbook, $sheet) {
   return socialcalc_save($socialcalc);
 }
 
+/**
+ *
+ * @param type $workbook
+ * @param type $sheet
+ * @param type $cell
+ * @param array $sc 
+ */
 function _sheetnode_phpexcel_import_cell($workbook, $sheet, $cell, &$sc) {
   $c = array(); // output cell
   
@@ -253,7 +417,7 @@ function _sheetnode_phpexcel_import_cell($workbook, $sheet, $cell, &$sc) {
     }
     catch (Exception $e) {
       $c['datavalue'] = 0;
-      watchdog('sheetnode_phpexcel', 'Error importing formula "!formula" at cell !coord.', array('!formula' => $c['formula'], '!coord' => $cell->getCoordinate()), 'warning');
+      watchdog('sheetnode_phpexcel', 'Error importing formula "!formula" at cell !coord.', array('!formula' => $c['formula'], '!coord' => $cell->getCoordinate()), WATCHDOG_WARNING);
     }
     $c['valuetype'] = is_numeric($c['datavalue']) ? 'n' : 't';
     break;
@@ -330,6 +494,12 @@ function _sheetnode_phpexcel_import_cell($workbook, $sheet, $cell, &$sc) {
   $sc['cells'][$cell->getCoordinate()] = $c;
 }
 
+/**
+ *
+ * @staticvar array $styles
+ * @param type $reset
+ * @return array 
+ */
 function _sheetnode_phpexcel_get_cached_styles($reset = FALSE) {
   static $styles = array();
   if ($reset) {
@@ -390,16 +560,30 @@ function _sheetnode_phpexcel_createCSSStyleFont(PHPExcel_Style_Font $pStyle) {
   return $css;
 }
 
+/**
+ *
+ * @param type $sc
+ * @param type $key
+ * @param type $style
+ * @return type 
+ */
 function _sheetnode_phpexcel_insert_hash(&$sc, $key, $style) {
   $hash = @$sc[$key.'hash'][$style];
   if (is_null($hash)) {
+    /*
     $hash = count($sc[$key.'s']) + 1;
     $sc[$key.'s'][$hash] = $style;
     $sc[$key.'hash'][$style] = $hash;
+    */
   }
   return $hash;
 }
 
+/**
+ *
+ * @param type $font
+ * @return type 
+ */
 function _sheetnode_phpexcel_get_font($font) {
   return ($font->getItalic() ? 'italic' : 'normal') .' '.
          ($font->getBold() ? 'bold' : 'normal') .' '.
@@ -407,6 +591,11 @@ function _sheetnode_phpexcel_get_font($font) {
          ($font->getName());
 }
 
+/**
+ *
+ * @param type $border
+ * @return type 
+ */
 function _sheetnode_phpexcel_get_border($border) {
   $borderstyles = array(
     PHPExcel_Style_Border::BORDER_NONE => FALSE,
@@ -430,6 +619,11 @@ function _sheetnode_phpexcel_get_border($border) {
   return $borderstyle .' '. $bordercolor;
 }
 
+/**
+ *
+ * @param type $style
+ * @return string 
+ */
 function _sheetnode_phpexcel_get_cellformat($style) {
   $cellformats = array(
     PHPExcel_Style_Alignment::HORIZONTAL_GENERAL => FALSE,
@@ -442,6 +636,11 @@ function _sheetnode_phpexcel_get_cellformat($style) {
   return $cellformats[$style->getAlignment()->getHorizontal()];
 }
 
+/**
+ *
+ * @param type $style
+ * @return type 
+ */
 function _sheetnode_phpexcel_get_layout($style) {
   $valignments = array(
     PHPExcel_Style_Alignment::VERTICAL_TOP => 'top',
@@ -455,6 +654,11 @@ function _sheetnode_phpexcel_get_layout($style) {
   return 'padding:* * * '. $padding_left .';vertical-align:'. $valignment .';';
 }
 
+/**
+ *
+ * @param type $numberformat
+ * @return type 
+ */
 function _sheetnode_phpexcel_get_valueformat($numberformat) {
   $valueformat = $numberformat->getFormatCode();
   if (strtolower($valueformat) == 'general') return FALSE;
@@ -462,8 +666,36 @@ function _sheetnode_phpexcel_get_valueformat($numberformat) {
   return $valueformat;
 }
 
+/**
+ *
+ * @param type $color
+ * @return type 
+ */
 function _sheetnode_phpexcel_get_color($color) {
   $rgb = $color->getRGB();
   return 'rgb(' . hexdec(substr($rgb, 0, 2)) .','. hexdec(substr($rgb, 2, 2)) .','. hexdec(substr($rgb, 4, 2)) .')';
 }
 
+/**
+ * Determine whether the $title matches any string in the array of 
+ * $filter_sheet_names (case insensitive)
+ * 
+ * @param type $title
+ * @param type $filter_sheet_names
+ * @return boolean 
+ */
+function _sheetnode_phpexcel_title_matches($title, $filter_sheet_names) {
+  $match = false;
+  $acount = count($filter_sheet_names);
+
+  for ($i = 0; $i < $acount; $i++)    {
+    $atitle = strtolower($filter_sheet_names[$i]);
+    if ($atitle == strtolower($title))  {
+      $match = true;
+      break;
+    }
+  }
+
+  return $match;
+}
+        
