@@ -4,4 +4,4 @@ package = Sheetnode
 dependencies[] = sheetnode
 dependencies[] = querypath
 dependencies[] = format_number
-core = 7.x
+core = 6.x

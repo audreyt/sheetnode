@@ -45,7 +45,7 @@ function sheetnode_google_menu() {
     'description' => 'Create a new sheetnode with content from an existing Google Spreadsheet.',
     'file' => 'sheetnode_google.import.inc',
   );
-  $items['admin/config/content/google'] = array(
+  $items['admin/settings/sheetnode/google'] = array(
     'title' => 'Sheetnode Google Spreadsheets',
     'access arguments' => array('administer site configuration'),
     'page callback' => 'drupal_get_form',

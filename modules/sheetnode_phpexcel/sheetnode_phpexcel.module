@@ -5,7 +5,7 @@
  */
 function sheetnode_phpexcel_views_api() {
   return array(
-    'api' => 3,
+    'api' => 2,
   );
 }
 
@@ -111,7 +111,7 @@ function sheetnode_phpexcel_menu() {
     );
   }
 
-  $items['admin/config/content/phpexcel'] = array(
+  $items['admin/settings/sheetnode/phpexcel'] = array(
     'title' => 'Sheetnode PHPExcel',
     'access arguments' => array('administer site configuration'),
     'page callback' => 'drupal_get_form',
@@ -139,26 +139,5 @@ function _sheetnode_phpexcel_settings_validate($form, $form_state) {
     form_set_error('sheetnode_phpexcel_library_path', t('The path you entered does not point to a valid location. Please enter the location of the extracted PHPExcel package.'));
     return;
   }
-}
-
-
-/**
- * API function to batch import several files using Batch API.
- */
-function sheetnode_phpexcel_batch_import($files, $destination = NULL, $callback = NULL, $params = array(), $batch = array(), $form_state = array()) {
-  $batch += array(
-    'finished' => '_sheetnode_phpexcel_batch_import_finished',
-    'title' => t('Importing spreadsheets'),
-    'init_message' => t('Import process is starting.'),
-    'progress_message' => t('Imported @current out of @total files.'),
-    'error_message' => t('Import process has encountered an error.'),
-    'file' => drupal_get_path('module', 'sheetnode_phpexcel') . '/sheetnode_phpexcel.import.inc',
-  );
-  $context = array();
-  foreach ($files as $filename) {
-    $batch['operations'][] = array('_sheetnode_phpexcel_batch_import_file', array($filename, $callback, $params));
-  }
-  batch_set($batch);
-  batch_process($destination);
 }
 

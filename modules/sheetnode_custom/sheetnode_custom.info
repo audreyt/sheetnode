@@ -1,6 +1,0 @@
-; $Id: 
-name = Sheetnode Custom
-description = Provide a custom display that displays a spreadsheet interface.
-package = Sheetnode
-dependencies[] = sheetnode 
-core = 7.x
