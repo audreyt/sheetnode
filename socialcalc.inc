@@ -18,6 +18,7 @@ class SocialCalc_Constants {
 }
 
 function socialcalc_parse($data) {
+  $sc = array('sheet' => NULL);
   $parts = socialcalc_parse_parts($data);
   foreach ($parts as $name => $part) {
     $sc[$name] = call_user_func('socialcalc_parse_'. $name, $part);
