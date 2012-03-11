@@ -95,7 +95,7 @@ function sheetnode_view($node, $view_mode) {
   // SocialCalc sheet.
   if ($view_mode == 'full') {
     $output = _sheetnode_inject(
-      'sheetnode-' . $node->nid, 
+      drupal_clean_css_identifier('sheetnode-' . $node->nid), 
       $node->sheetnode['value'], 
       FALSE, 
       array('entity-name' => 'node', 'oid' => $node->nid)
@@ -125,7 +125,11 @@ function sheetnode_form($node, &$form_state) {
   $form = node_content_form(!empty($node) ? $node : 'sheetnode', $form_state);
  
   // SocialCalc sheet.
-  if (!empty($node->nid)) {
+  if (!empty($form_state['input']['sheetnode']['value'])) {
+    $value = $form_state['input']['sheetnode']['value'];
+    $nid = @$node->nid;
+  }
+  else if (!empty($node->nid)) {
     $value = $node->sheetnode['value'];
     $nid = $node->nid;
   }
@@ -139,9 +143,9 @@ function sheetnode_form($node, &$form_state) {
     $nid = NULL;
   }
   $output = _sheetnode_inject(
-    'sheetnode-' . (empty($node->nid) ? 'new' : $node->nid), 
+    drupal_clean_css_identifier('sheetnode-' . (empty($node->nid) ? 'new' : $node->nid)), 
     $value, 
-    'edit-sheetnode-value', 
+    drupal_clean_css_identifier('edit-sheetnode-value'), 
     array('entity-name' => 'node', 'oid' => $nid)
   );
   $form['sheetnode'] = array(
@@ -171,9 +175,9 @@ function sheetnode_validate($node, $form, &$form_state) {
   $errors = form_get_errors();
   if (!empty($errors)) {
     _sheetnode_inject(
-      'sheetnode-' . (empty($form['nid']['#value']) ? 'new' : $form['nid']['#value']), 
+      drupal_clean_css_identifier('sheetnode-' . (empty($form['nid']['#value']) ? 'new' : $form['nid']['#value'])), 
       $form['sheetnode']['value']['#value'], 
-      'edit-sheetnode-value', 
+      drupal_clean_css_identifier('edit-sheetnode-value'), 
       array('entity-name' => 'node', 'oid' => $form['nid']['#value'])
     ); 
   }
@@ -226,17 +230,22 @@ function _sheetnode_content_field_edit_form_submit($form, &$form_state) {
  */
 function _sheetnode_inject($sheet_id, $value, $save_element, $context, $ahah = FALSE) {
   $path = drupal_get_path('module', 'sheetnode');
-  drupal_add_js($path . '/socialcalc/socialcalcconstants.js');
-  drupal_add_js($path . '/socialcalc/socialcalc-3.js');
-  drupal_add_js($path . '/socialcalc/socialcalctableeditor.js');
-  drupal_add_js($path . '/socialcalc/formatnumber2.js');
-  drupal_add_js($path . '/socialcalc/formula1.js');
-  drupal_add_js($path . '/socialcalc/socialcalcpopup.js');
-  drupal_add_js($path . '/socialcalc/socialcalcspreadsheetcontrol.js');
-  drupal_add_js($path . '/socialcalc/socialcalcviewer.js');
-  drupal_add_js($path . '/sheetnode.js');
-  drupal_add_css($path . '/socialcalc/socialcalc.css');
-  drupal_add_css($path . '/sheetnode.css');
+
+  static $once = FALSE;
+  if (!$once) {
+    drupal_add_js($path . '/socialcalc/socialcalcconstants.js');
+    drupal_add_js($path . '/socialcalc/socialcalc-3.js');
+    drupal_add_js($path . '/socialcalc/socialcalctableeditor.js');
+    drupal_add_js($path . '/socialcalc/formatnumber2.js');
+    drupal_add_js($path . '/socialcalc/formula1.js');
+    drupal_add_js($path . '/socialcalc/socialcalcpopup.js');
+    drupal_add_js($path . '/socialcalc/socialcalcspreadsheetcontrol.js');
+    drupal_add_js($path . '/socialcalc/socialcalcviewer.js');
+    drupal_add_js($path . '/sheetnode.js');
+    drupal_add_css($path . '/socialcalc/socialcalc.css');
+    drupal_add_css($path . '/sheetnode.css');
+    $once = TRUE;
+  }
 
   module_invoke_all('sheetnode_plugins', $value, $save_element, $context, $ahah);
 
@@ -658,29 +667,46 @@ function sheetnode_field_info() {
     'sheetfield' => array(
       'label' => t('Spreadsheet'),
       'description' => t('Store a spreadsheet.'),
-      // 'content_icon' => 'icon_content_sheet.png',
+      'default_widget' => 'sheetfield_spreadsheet',
+      'default_formatter' => 'sheetfield_default',
     ),
   );
 }
 
 /**
- * Implements hook_field_settings().
+ * Implements hook_field_validate().
  */
-function sheetnode_field_settings($op, $field) {
-  switch ($op) {
-  case 'database columns':
-    require_once(drupal_get_path('module', 'sheetnode') . '/sheetnode.install');
-    $schema = sheetnode_schema();
-    $columns['value'] = $schema['sheetnode']['fields']['value'];
-    $columns['value']['not null'] = FALSE;
-    return $columns;
+function sheetnode_field_validate($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
+}
+
+/**
+ * Implements hook_field_node_validate().
+ *
+ * Catch form errors to re-initialize sheetfields.
+ */
+function sheetnode_node_validate($node, $form, &$form_state) {
+  $errors = form_get_errors();
+  if (!empty($errors)) foreach ($form_state['field'] as $field_name => $field) {
+    if ($field[$node->language]['field']['type'] == 'sheetfield' && !empty($form_state['input'][$field_name])) {
+      foreach ($form_state['input'][$field_name][$node->language] as $delta => $item) {
+        $field_key = 'value';
+        $element_id = drupal_clean_css_identifier('edit-' . $field_name . '-' . $node->language . '-' . $delta);
+        $output = _sheetnode_inject(
+          drupal_clean_css_identifier('sheetfield-' . $element_id),
+          $item['value'],
+          $element_id,
+          array('entity-name' => 'node', 'oid' => @$node->nid)
+        );
+      }
+    }
   }
 }
 
 /**
- * Implements hook_content_is_empty().
+ * Implements hook_field_is_empty().
  */
-function sheetnode_content_is_empty($item, $field) {
+function sheetnode_field_is_empty($item, $field) {
+  if (empty($item['value'])) return TRUE;
   require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
   $sc = socialcalc_parse($item['value']);
   return empty($sc['sheet']['cells']);
@@ -727,44 +753,85 @@ function _sheetnode_lcg_randf($min, $max) {
  */
 function sheetnode_field_formatter_info() {
   return array(
-    'default' => array(
+    'sheetfield_default' => array(
       'label' => t('Default'),
       'field types' => array('sheetfield'),
-      'multiple values' => CONTENT_HANDLE_CORE,
     ),
     'socialcalc_date' => array(
       'label' => t('SocialCalc'),
       'field types' => array('date', 'datetime', 'datestamp'),
-      'multiple values' => CONTENT_HANDLE_CORE,
     ),
   );
 }
 
 /**
- * Implements hook_widget_info().
+ * Implements hook_field_formatter_view().
  */
-function sheetnode_widget_info() {
+function sheetnode_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+
+  switch ($display['type']) {
+    case 'sheetfield_default':
+      foreach ($items as $delta => $item) {
+        $value = $item['value'];
+        $output = _sheetnode_inject(
+          drupal_clean_css_identifier('sheetfield-' . $field['field_name'] . '-' . $langcode . '-' . $delta),
+          $value, 
+          FALSE, 
+          isset($entity) && $entity == 'node' ? array('entity-name' => $entity_type, 'oid' => @$entity->nid) : NULL
+        );
+        $element[$delta] = array('#markup' => $output);
+      }
+      break;
+    case 'socialcalc_date':
+      break;
+  }
+
+  return $element;
+}
+
+/** 
+ * Implements hook_field_widget_info().
+ */
+function sheetnode_field_widget_info() {
   return array(
     'sheetfield_spreadsheet' => array(
       'label' => t('Spreadsheet'),
       'field types' => array('sheetfield'),
-      'multiple values' => CONTENT_HANDLE_CORE,
-      'callbacks' => array(
-        'default value' => CONTENT_CALLBACK_DEFAULT,
-      ),
     ),
   );
 }
 
 /**
- * Implements hook_widget().
+ * Implements hook_field_widget_form().
  */
-function sheetnode_widget(&$form, &$form_state, $field, $items, $delta = 0) {
-  $element = array(
-    '#type' => $field['widget']['type'],
-    '#default_value' => isset($items[$delta]) ? $items[$delta] : '',
-  );
-  return $element;
+function sheetnode_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  $value = isset($items[$delta]['value']) ? $items[$delta]['value'] : NULL;
+
+  $widget = $element;
+  $widget['#delta'] = $delta;
+
+  switch ($instance['widget']['type']) {
+    case 'sheetfield_spreadsheet':
+      $field_key = $element['#columns'][0];
+      $element_id = drupal_clean_css_identifier('edit-' . $element['#field_name'] . '-' . $langcode . '-' . $delta);
+      $output = _sheetnode_inject(
+        drupal_clean_css_identifier('sheetfield-' . $element_id),
+        $value,
+        $element_id,
+        isset($form['#node']) ? array('entity-name' => 'node', 'oid' => @$form['#node']->nid) : NULL
+      );
+      $widget[$field_key] = array('#type' => 'hidden', '#attributes' => array('id' => $element_id), '#prefix' => $output);
+      break;
+  }
+  
+  return $widget;
+}
+
+/**
+ * Implements hook_field_widget_error().
+ */
+function sheetnode_field_widget_error($element, $error, $form, &$form_state) {
 }
 
 /**
@@ -792,9 +859,9 @@ function _sheetfield_spreadsheet_process($element, $edit, $form_state, $form) {
            !empty($element['#default_value'][$field_key]) && is_string($element['#default_value'][$field_key]) ? $element['#default_value'][$field_key] : (
            !empty($element['#default_value']) && is_string($element['#default_value']) ? $element['#default_value'] : '')));
   $output = _sheetnode_inject(
-    'sheetfield-' . $element['#id'], 
+    drupal_clean_css_identifier('sheetfield-' . $element['#id']), 
     $value, 
-    $element['#id'] . '-' . $field_key, 
+    drupal_clean_css_identifier($element['#id'] . '-' . $field_key), 
     isset($form['#node']) ? array('entity-name' => 'node', 'oid' => @$form['#node']->nid) : NULL,
     !empty($form['#post']) && empty($form['#post']['op']) && !empty($form['#post'][ $element['#field_name'] . '_add_more' ])
   );
@@ -819,7 +886,7 @@ function theme_sheetnode_formatter_default($element) {
   $value = $element['#item']['value'];
   if (!empty($value)) {
     $output = _sheetnode_inject(
-      'sheetfield-' . str_replace('_', '-', $element['#field_name']) . '-' . $element['#item']['#delta'], 
+      drupal_clean_css_identifier('sheetfield-' . $element['#field_name'] . '-' . $element['#item']['#delta']), 
       $value, 
       FALSE, 
       isset($element['#node']) ? array('entity-name' => 'node', 'oid' => @$element['#node']->nid) : NULL
