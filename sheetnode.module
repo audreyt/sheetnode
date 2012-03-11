@@ -230,22 +230,17 @@ function _sheetnode_content_field_edit_form_submit($form, &$form_state) {
  */
 function _sheetnode_inject($sheet_id, $value, $save_element, $context, $ahah = FALSE) {
   $path = drupal_get_path('module', 'sheetnode');
-
-  static $once = FALSE;
-  if (!$once) {
-    drupal_add_js($path . '/socialcalc/socialcalcconstants.js');
-    drupal_add_js($path . '/socialcalc/socialcalc-3.js');
-    drupal_add_js($path . '/socialcalc/socialcalctableeditor.js');
-    drupal_add_js($path . '/socialcalc/formatnumber2.js');
-    drupal_add_js($path . '/socialcalc/formula1.js');
-    drupal_add_js($path . '/socialcalc/socialcalcpopup.js');
-    drupal_add_js($path . '/socialcalc/socialcalcspreadsheetcontrol.js');
-    drupal_add_js($path . '/socialcalc/socialcalcviewer.js');
-    drupal_add_js($path . '/sheetnode.js');
-    drupal_add_css($path . '/socialcalc/socialcalc.css');
-    drupal_add_css($path . '/sheetnode.css');
-    $once = TRUE;
-  }
+  drupal_add_js($path . '/socialcalc/socialcalcconstants.js', array('weight' => 1));
+  drupal_add_js($path . '/socialcalc/socialcalc-3.js', array('weight' => 2));
+  drupal_add_js($path . '/socialcalc/socialcalctableeditor.js', array('weight' => 3));
+  drupal_add_js($path . '/socialcalc/formatnumber2.js');
+  drupal_add_js($path . '/socialcalc/formula1.js');
+  drupal_add_js($path . '/socialcalc/socialcalcpopup.js', array('weight' => 4));
+  drupal_add_js($path . '/socialcalc/socialcalcspreadsheetcontrol.js', array('weight' => 5));
+  drupal_add_js($path . '/socialcalc/socialcalcviewer.js', array('weight' => 5));
+  drupal_add_js($path . '/sheetnode.js', array('weight' => 6));
+  drupal_add_css($path . '/socialcalc/socialcalc.css');
+  drupal_add_css($path . '/sheetnode.css');
 
   module_invoke_all('sheetnode_plugins', $value, $save_element, $context, $ahah);
 
