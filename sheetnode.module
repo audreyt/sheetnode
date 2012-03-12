@@ -228,7 +228,7 @@ function _sheetnode_content_field_edit_form_submit($form, &$form_state) {
 /**
  * Helper function to inject Sheetnode JavaScript.
  */
-function _sheetnode_inject($sheet_id, $value, $save_element, $context, $ahah = FALSE) {
+function _sheetnode_inject($sheet_id, $value, $save_element, $context) {
   $path = drupal_get_path('module', 'sheetnode');
   drupal_add_js($path . '/socialcalc/socialcalcconstants.js', array('weight' => 1));
   drupal_add_js($path . '/socialcalc/socialcalc-3.js', array('weight' => 2));
@@ -242,11 +242,11 @@ function _sheetnode_inject($sheet_id, $value, $save_element, $context, $ahah = F
   drupal_add_css($path . '/socialcalc/socialcalc.css');
   drupal_add_css($path . '/sheetnode.css');
 
-  module_invoke_all('sheetnode_plugins', $value, $save_element, $context, $ahah);
+  module_invoke_all('sheetnode_plugins', $value, $save_element, $context);
 
-  if ($ahah) {
-    static $settings = NULL;
-    $settings['sheetnode'][$sheet_id] = array(
+  static $sheets = NULL;
+  if (!isset($sheets[$sheet_id])) {
+    drupal_add_js(array('sheetnode' => array($sheet_id => array(
       'value' => $value, 
       'imagePrefix' => base_path() . $path . '/socialcalc/images/sc-',
       'containerElement' => $sheet_id,
@@ -257,37 +257,10 @@ function _sheetnode_inject($sheet_id, $value, $save_element, $context, $ahah = F
         'edit sheetnode settings' => user_access('edit sheetnode settings'),
       ),
       'context' => $context,
-    );
-    $js_settings = drupal_to_js($settings);
-    return <<<EOS
-<script language="javascript" type="text/javascript">
-  Drupal.behaviors.sheetnodeAHAH = function(context) {
-    jQuery.extend(Drupal.settings, $js_settings);
-    Drupal.behaviors.sheetnode(context);
+    ))), 'setting');
+    $sheets[$sheet_id] = TRUE;
   }
-</script>
-<div class="sheetview" id="$sheet_id"></div>
-EOS;
-  }
-  else {
-    static $sheets = NULL;
-    if (!isset($sheets[$sheet_id])) {
-      drupal_add_js(array('sheetnode' => array($sheet_id => array(
-        'value' => $value, 
-        'imagePrefix' => base_path() . $path . '/socialcalc/images/sc-',
-        'containerElement' => $sheet_id,
-        'saveElement' => $save_element,
-        'viewMode' => variable_get('sheetnode_view_mode', SHEETNODE_VIEW_FIDDLE),
-        'showToolbar' => variable_get('sheetnode_view_toolbar', FALSE),
-        'permissions' => array(
-          'edit sheetnode settings' => user_access('edit sheetnode settings'),
-        ),
-        'context' => $context,
-      ))), 'setting');
-      $sheets[$sheet_id] = TRUE;
-    }
-    return '<div class="sheetview" id="' . $sheet_id . '"></div>';
-  }
+  return '<div class="sheetview" id="' . $sheet_id . '"></div>';
 }
 
 /**
@@ -640,17 +613,25 @@ function sheetnode_init() {
 }
 
 /**
- * Implements hook_content_extra_fields().
+ * Implements hook_field_extra_fields().
  */
-function sheetnode_content_extra_fields($type_name) {
-  $extra = array();
-  if ($type_name == 'sheetnode') {
-    $extra['sheetnode'] = array(
-      'label' => t('Spreadsheet'),
-      'description' => t('Sheetnode module form.'),
-      'weight' => -1,
-    );
-  }
+function sheetnode_field_extra_fields() {
+  $extra['node']['sheetnode'] = array(
+    'form' => array(
+      'sheetnode' => array(
+        'label' => t('Spreadsheet'),
+        'description' => t('Spreadsheet control'),
+        'weight' => -1,
+      )
+    ),
+    'display' => array(
+      'sheetnode' => array(
+        'label' => t('Spreadsheet'),
+        'description' => t('Spreadsheet control'),
+        'weight' => -1,
+      ),
+    ),
+  );
   return $extra;
 }
 
