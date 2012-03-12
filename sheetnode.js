@@ -4,11 +4,11 @@
 Drupal.behaviors.sheetnode = {
   attach: function(context, settings) {
     // Abort early if sheetnode settings not in place (which happens in case of Views style settings).
-    if (typeof(Drupal.settings.sheetnode) == 'undefined') return;
+    if (typeof(settings.sheetnode) == 'undefined') return;
 
     $(".sheetview", context).not(".sheetview-processed").each(function() {
-      if (typeof(Drupal.settings.sheetnode[$(this).attr('id')]) != 'undefined') {
-        Drupal.sheetnode.sheetviews.push(new Drupal.sheetnode(Drupal.settings.sheetnode[$(this).attr('id')], this, context));
+      if (typeof(settings.sheetnode[$(this).attr('id')]) != 'undefined') {
+        Drupal.sheetnode.sheetviews.push(new Drupal.sheetnode(settings.sheetnode[$(this).attr('id')], this, context));
       }
     });
   }

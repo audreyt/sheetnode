@@ -669,12 +669,6 @@ function sheetnode_field_info() {
 }
 
 /**
- * Implements hook_field_validate().
- */
-function sheetnode_field_validate($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
-}
-
-/**
  * Implements hook_field_node_validate().
  *
  * Catch form errors to re-initialize sheetfields.
@@ -801,7 +795,9 @@ function sheetnode_field_widget_info() {
  * Implements hook_field_widget_form().
  */
 function sheetnode_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
-  $value = isset($items[$delta]['value']) ? $items[$delta]['value'] : NULL;
+  $value = isset($form_state['input'][$element['#field_name']][$langcode][$delta]) ? 
+    $form_state['input'][$element['#field_name']][$langcode][$delta]['value'] : 
+    (isset($items[$delta]['value']) ? $items[$delta]['value'] : NULL);
 
   $widget = $element;
   $widget['#delta'] = $delta;
@@ -821,12 +817,6 @@ function sheetnode_field_widget_form(&$form, &$form_state, $field, $instance, $l
   }
   
   return $widget;
-}
-
-/**
- * Implements hook_field_widget_error().
- */
-function sheetnode_field_widget_error($element, $error, $form, &$form_state) {
 }
 
 /**
