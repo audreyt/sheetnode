@@ -551,15 +551,6 @@ function sheetnode_theme($existing, $type, $theme, $path) {
     'sheetnode_range' => array(
       'arguments' => array('range' => NULL, 'labels' => NULL),
     ),
-    'sheetfield_spreadsheet' => array(
-      'arguments' => array('element' => NULL),
-    ),
-    'sheetnode_formatter_default' => array(
-      'arguments' => array('element' => NULL),
-    ),
-    'sheetnode_formatter_socialcalc_date' => array(
-      'arguments' => array('element' => NULL),
-    ),
   );
 }
 
@@ -776,9 +767,12 @@ function sheetnode_field_widget_info() {
  * Implements hook_field_widget_form().
  */
 function sheetnode_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
-  $value = isset($form_state['input'][$element['#field_name']][$langcode][$delta]) ? 
-    $form_state['input'][$element['#field_name']][$langcode][$delta]['value'] : 
-    (isset($items[$delta]['value']) ? $items[$delta]['value'] : NULL);
+  $value = 
+    isset($form_state['input'][$element['#field_name']][$langcode][$delta]['value']) ? 
+      $form_state['input'][$element['#field_name']][$langcode][$delta]['value'] : (
+    isset($items[$delta]['value']) ? 
+      $items[$delta]['value'] : (
+    NULL));
 
   $widget = $element;
   $widget['#delta'] = $delta;
@@ -801,64 +795,47 @@ function sheetnode_field_widget_form(&$form, &$form_state, $field, $instance, $l
 }
 
 /**
- * Implements FAPI hook_elements().
+ * Implements FAPI hook_element_info().
  */
-function sheetnode_elements() {
+function sheetnode_element_info() {
   return array(
-    'sheetfield_spreadsheet' => array(
+    'spreadsheet' => array(
       '#input' => TRUE,
-      '#columns' => array('value'), 
-      '#delta' => 0,
-      '#process' => array('_sheetfield_spreadsheet_process'),
-      '#autocomplete_path' => FALSE,
+      '#process' => array('_sheetnode_spreadsheet_process'),
     ),
   );
 }
 
 /**
- * Process function for sheetfield_spreadsheet element.
+ * Process function for spreadsheet element.
  */
-function _sheetfield_spreadsheet_process($element, $edit, $form_state, $form) {
-  $field_key = $element['#columns'][0];
-  $value = !empty($element['#value'][$field_key]) && is_string($element['#value'][$field_key]) ? $element['#value'][$field_key] : (
-           !empty($element['#value']) && is_string($element['#value']) ? $element['#value'] : (
-           !empty($element['#default_value'][$field_key]) && is_string($element['#default_value'][$field_key]) ? $element['#default_value'][$field_key] : (
-           !empty($element['#default_value']) && is_string($element['#default_value']) ? $element['#default_value'] : '')));
+function _sheetnode_spreadsheet_process($element, &$form_state, $form) {
+  $field_key = 'value';
+  $value = 
+    isset($form_state['input'][$element['#name']][$field_key]) ? 
+      $form_state['input'][$element['#name']][$field_key] : (
+    is_array($element['#value']) && isset($element['#value'][$field_key]) ? 
+      $element['#value'][$field_key] : (
+    isset($element['#value']) ? 
+      $element['#value'] : (
+    is_array($element['#default_value']) && isset($element['#default_value'][$field_key]) ? 
+      $element['#default_value'][$field_key] : ( 
+    isset($element['#default_value']) ? $element['#default_value'] : (
+    NULL)))));
+
   $output = _sheetnode_inject(
     drupal_clean_css_identifier('sheetfield-' . $element['#id']), 
     $value, 
     drupal_clean_css_identifier($element['#id'] . '-' . $field_key), 
-    isset($form['#node']) ? array('entity-name' => 'node', 'oid' => @$form['#node']->nid) : NULL,
-    !empty($form['#post']) && empty($form['#post']['op']) && !empty($form['#post'][ $element['#field_name'] . '_add_more' ])
+    NULL
   );
   $element['#tree'] = TRUE;
-  $element['sheetview'] = array('#value' => $output, '#weight' => -1);
-  $element[$field_key] = array('#type' => 'hidden');
+  $element[$field_key] = array(
+    '#type' => 'hidden', 
+    '#attributes' => array('id' => drupal_clean_css_identifier($element['#id'] . '-' . $field_key)), 
+    '#prefix' => $output,
+  );
   return $element;
-}
-
-/**
- * Theme function for sheetfield_spreadsheet element.
- */
-function theme_sheetfield_spreadsheet($element) {
-  return theme('form_element', $element, $element['#children']);
-}
-
-/**
- * Theme function for sheetfield default formatter.
- */
-function theme_sheetnode_formatter_default($element) {
-  $output = '';
-  $value = $element['#item']['value'];
-  if (!empty($value)) {
-    $output = _sheetnode_inject(
-      drupal_clean_css_identifier('sheetfield-' . $element['#field_name'] . '-' . $element['#item']['#delta']), 
-      $value, 
-      FALSE, 
-      isset($element['#node']) ? array('entity-name' => 'node', 'oid' => @$element['#node']->nid) : NULL
-    );
-  }
-  return $output;
 }
 
 /**
