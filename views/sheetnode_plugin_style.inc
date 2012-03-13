@@ -9,8 +9,8 @@ class sheetnode_plugin_style extends views_plugin_style {
   function option_definition() {
     $options = parent::option_definition();
     $options['expansion'] = array('default' => SHEETNODE_EXPANSION_VERTICAL); 
-    $options['template'] = array('default' => FALSE);
-    $options['sheetsave'] = array('default' => '');
+    $options['use_template'] = array('default' => FALSE);
+    $options['template'] = array('default' => '');
     return $options;
   }
 
@@ -27,7 +27,7 @@ class sheetnode_plugin_style extends views_plugin_style {
       '#default_value' => $this->options['expansion'],
       '#weight' => 97,
     );
-    $form['template'] = array(
+    $form['use_template'] = array(
       '#type' => 'checkbox',
       '#title' => t('Use template'),
       '#description' => t('Check this box to use the spreadsheet below as template for your view. 
@@ -39,39 +39,24 @@ class sheetnode_plugin_style extends views_plugin_style {
                            <li><code>$[FUNCTION(@field_label@, @cell_reference@, ...)]</code> to indicate that a calculation should be placed in this cell. 
                            <code>@field_label@</code> are replaced with the corresponding cell ranges.</li>
                            </ul>'),
-      '#default_value' => $this->options['template'],
+      '#default_value' => $this->options['use_template'],
       '#weight' => 98,
     );
-    global $base_url;
-    $settings = drupal_to_js(array('sheetnode' => array(
-      'value' => $this->options['sheetsave'],
-      'image_prefix' => $base_url . '/' . drupal_get_path('module', 'sheetnode') . '/socialcalc/images/sc-',
-      'view_id' => 'sheetview',
-      'edit_id' => 'edit-style-options-sheetsave',
-      'editing' => TRUE,
-      'fiddling' => variable_get('sheetnode_fiddle', SHEETNODE_VIEW_FIDDLE),
-      'perm_edit_sheet_settings' => user_access('edit sheet settings') ? TRUE : FALSE,
-      'context' => array('entity-name' => 'view', 'oid' => isset($this->view->vid) ? $this->view->vid : $this->view->name),
-    )));
-    $form['sheetview']['#weight'] = 99;
-    $form['sheetview']['#value'] = <<<EOS
-<div class="sheetview" id="sheetview">
-<script language="javascript" type="text/javascript">
-  Drupal.behaviors.sheetnode = function(context) {
-    jQuery.extend(Drupal.settings, $settings);
-    Drupal.sheetnode.start(context);
-  }
-</script>
-</div>
-EOS;
-    $form['sheetsave'] = array('#type' => 'hidden');
+    $id = 'edit-style-options-template';
+    $output = $this->render_inject($this->options['template'], $id);
+    $form['template'] = array(
+      '#type' => 'hidden', 
+      '#attributes' => array('id' => $id), 
+      '#prefix' => $output, 
+      '#weight' => 99
+    );
   }
 
   function render_sheet() {
     $tangent = $this->options['expansion'];
     $normal  = 1-$tangent;
-    if ($this->options['template']) {
-      $socialcalc = socialcalc_parse($this->options['sheetsave']);
+    if ($this->options['use_template']) {
+      $socialcalc = socialcalc_parse($this->options['template']);
       $lastpos = array(0,0);
 
       // Iterate through cells, gathering placeholder values.
@@ -80,7 +65,7 @@ EOS;
         $matches = array();
         if (isset($cell['datavalue']) && $cell['datatype'] == 't') {
           if (preg_match('/^\${(.*?)\}$/', $cell['datavalue'], $matches)) {
-            $field_name = $this->get_real_field_name($matches[1]);
+            $field_name = $this->find_field($matches[1]);
             if ($field_name && !$this->view->field[$field_name]->options['exclude']) { // it's a field expansion
               $fields[$field_name] = array(
                 'coord' => $coord,
@@ -112,18 +97,36 @@ EOS;
       if (!empty($fields)) foreach ($fields as $field_name => $field) {
         unset($socialcalc['sheet']['cells'][$field['coord']]);
         $newcell = $field['cell'];
-        $pos = $newcell['pos'];
+        $pos = $maxpos = $newcell['pos'];
         foreach ($this->view->result as $result) {
-          $newcell['pos'] = $pos;
           $value = $field['info']->theme($result);
-          $newcell['datavalue'] = $value;
-          $newcell['datatype'] = is_numeric($value) ? 'v' : 't';
-          $newcell['valuetype'] = is_numeric($value) ? 'n' : 'th';
-          $newcells[socialcalc_cr_to_coord($pos[0], $pos[1])] = $newcell;
+          if (is_array($value)) {
+            // Expand an array of values into consecutive cells.
+            $itempos = $pos;
+            foreach ($value as $item) {
+              $itemcell = $newcell;
+              $itemcell['pos'] = $itempos;
+              $itemcell['datavalue'] = $item;
+              $itemcell['datatype'] = is_numeric($item) ? 'v' : 't';
+              $itemcell['valuetype'] = is_numeric($item) ? 'n' : 'th';
+              $newcells[socialcalc_cr_to_coord($itempos[0], $itempos[1])] = $itemcell;
+              $itempos[$tangent]++;
+              $maxpos[$tangent] = max($maxpos[$tangent], $itempos[$tangent]);
+            }
+          }
+          else {
+            // Expand a single value into the current cell.
+            $newcell['pos'] = $pos;
+            $newcell['datavalue'] = $value;
+            $newcell['datatype'] = is_numeric($value) ? 'v' : 't';
+            $newcell['valuetype'] = is_numeric($value) ? 'n' : 'th';
+            $newcells[socialcalc_cr_to_coord($pos[0], $pos[1])] = $newcell;
+          }
           $pos[$normal]++;
         }
-        $fields[$field_name]['endpos'] = array($pos[0]-$tangent_increment[$tangent], $pos[1]-$tangent_increment[$normal]);
-        $lastpos = array(max($lastpos[0], $pos[0]), max($lastpos[1], $pos[1]));
+        $maxpos[$normal] = $pos[$normal];
+        $fields[$field_name]['endpos'] = array($maxpos[0]-$tangent_increment[$tangent], $maxpos[1]-$tangent_increment[$normal]);
+        $lastpos = array(max($lastpos[0], $maxpos[0]), max($lastpos[1], $maxpos[1]));
       }
 
       // Replace formula expansions with actual values.
@@ -139,8 +142,8 @@ EOS;
           for ($i=0; $i<$count; $i++) {
             $replace = NULL;
             $match = !empty($matches[1][$i]) ? $matches[1][$i] : $matches[2][$i];
-            $field_name = $this->get_real_field_name($match);
-            if (!$field_name || !isset($fields[$field_name])) {
+            $field_name = $this->find_field($match);
+            if (!$field_name) {
               // Not a field: try a cell coordinate.
               if (preg_match('/^\$?\w\w?\$?\d+$/', $match)) {
                 $refpos = socialcalc_coord_to_cr($match);
@@ -154,16 +157,14 @@ EOS;
                   }
                 }
               }
-            } else {
-              if ($matches[0][$i][0] == '@') {
-                $replace = socialcalc_cr_to_coord(
-                  $fields[$field_name]['cell']['pos'][0]+($j*$tangent_increment[$tangent]),
-                  $fields[$field_name]['cell']['pos'][1]+($j*$tangent_increment[$normal])
-                );
-              }
-              else {
-                $replace = $result->{$fields[$field_name]['info']->field_alias};
-              }
+            } else if ($matches[0][$i][0] == '@' && isset($fields[$field_name])) {
+              $replace = socialcalc_cr_to_coord(
+                $fields[$field_name]['cell']['pos'][0]+($j*$tangent_increment[$tangent]),
+                $fields[$field_name]['cell']['pos'][1]+($j*$tangent_increment[$normal])
+              );
+            }
+            else if ($matches[0][$i][0] == '$') {
+              $replace = $result->{$this->view->field[$field_name]->field_alias};
             }
             if (!is_null($replace)) {
               $expression = str_replace($matches[0][$i], $replace, $expression);
@@ -191,7 +192,7 @@ EOS;
         $matches = array();
         $count = (int)preg_match_all('/@(.*?)@/', $expression, $matches);
         for ($i=0; $i<$count; $i++) {
-          $field_name = $this->get_real_field_name($matches[1][$i]);
+          $field_name = $this->find_field($matches[1][$i]);
           if (!$field_name || !isset($fields[$field_name])) { 
             // Not a field: try a cell coordinate.
             if (preg_match('/^\$?\w\w?\$?\d+$/', $matches[1][$i])) {
@@ -292,7 +293,7 @@ EOS;
             $delta = max($delta, $field['endpos'][$normal] - $field['cell']['pos'][$normal]); 
           }
         }
-        if (@$ecell_changed) {
+        if (!empty($ecell_changed)) {
           $socialcalc['edit'][$panes][$i]['first'] += $delta;
           $socialcalc['edit'][$panes][$i]['last']  += $delta;
         }
@@ -316,14 +317,25 @@ EOS;
         $pos[$tangent] = 1;
         foreach ($this->view->field as $field => $info) {
           if ($info->options['exclude']) continue;
-          $cell['pos'] = $pos;
           $value = $info->theme($result);
-          $cell['datavalue'] = $value;
-          $cell['datatype'] = is_numeric($value) ? 'v' : 't';
-          $cell['valuetype'] = is_numeric($value) ? 'n' : 'th';
-
-          $sheet['cells'][socialcalc_cr_to_coord($pos[0], $pos[1])] = $cell;
-          $pos[$tangent]++;
+          if (is_array($value)) {
+            foreach ($value as $item) {
+              $cell['pos'] = $pos;
+              $cell['datavalue'] = $item;
+              $cell['datatype'] = is_numeric($item) ? 'v' : 't';
+              $cell['valuetype'] = is_numeric($item) ? 'n' : 'th';
+              $sheet['cells'][socialcalc_cr_to_coord($pos[0], $pos[1])] = $cell;
+              $pos[$tangent]++;
+            }
+          }
+          else {
+            $cell['pos'] = $pos;
+            $cell['datavalue'] = $value;
+            $cell['datatype'] = is_numeric($value) ? 'v' : 't';
+            $cell['valuetype'] = is_numeric($value) ? 'n' : 'th';
+            $sheet['cells'][socialcalc_cr_to_coord($pos[0], $pos[1])] = $cell;
+            $pos[$tangent]++;
+          }
         }
         $pos[$normal]++;
       }
@@ -362,49 +374,50 @@ EOS;
     return $socialcalc;
   }
 
-  function render() {
-    if (strpos($_REQUEST['q'], 'admin/build/views/ajax') === 0) {
-      drupal_set_message(t('Spreadsheet preview is not supported.'), 'warning');
-      return;
-    }
+  function render_inject($value, $save_element) {
+    $path = drupal_get_path('module', 'sheetnode');
+    drupal_add_js($path . '/socialcalc/socialcalcconstants.js', array('weight' => 1));
+    drupal_add_js($path . '/socialcalc/socialcalc-3.js', array('weight' => 2));
+    drupal_add_js($path . '/socialcalc/socialcalctableeditor.js', array('weight' => 3));
+    drupal_add_js($path . '/socialcalc/formatnumber2.js');
+    drupal_add_js($path . '/socialcalc/formula1.js');
+    drupal_add_js($path . '/socialcalc/socialcalcpopup.js', array('weight' => 4));
+    drupal_add_js($path . '/socialcalc/socialcalcspreadsheetcontrol.js', array('weight' => 5));
+    drupal_add_js($path . '/socialcalc/socialcalcviewer.js', array('weight' => 5));
+    drupal_add_js($path . '/sheetnode.js', array('weight' => 6));
+    drupal_add_css($path . '/socialcalc/socialcalc.css');
+    drupal_add_css($path . '/sheetnode.css');
 
-    global $base_url;
-    drupal_add_js(drupal_get_path('module', 'sheetnode') . '/socialcalc/socialcalcconstants.js');
-    drupal_add_js(drupal_get_path('module', 'sheetnode') . '/socialcalc/socialcalc-3.js');
-    drupal_add_js(drupal_get_path('module', 'sheetnode') . '/socialcalc/socialcalctableeditor.js');
-    drupal_add_js(drupal_get_path('module', 'sheetnode') . '/socialcalc/formatnumber2.js');
-    drupal_add_js(drupal_get_path('module', 'sheetnode') . '/socialcalc/formula1.js');
-    drupal_add_js(drupal_get_path('module', 'sheetnode') . '/socialcalc/socialcalcpopup.js');
-    drupal_add_js(drupal_get_path('module', 'sheetnode') . '/socialcalc/socialcalcspreadsheetcontrol.js');
-    drupal_add_js(drupal_get_path('module', 'sheetnode') . '/socialcalc/socialcalcviewer.js');
-    drupal_add_js(drupal_get_path('module', 'sheetnode') . '/sheetnode.js');
-    drupal_add_css(drupal_get_path('module', 'sheetnode') . '/socialcalc/socialcalc.css');
-    drupal_add_css(drupal_get_path('module', 'sheetnode') . '/sheetnode.css');
-    $settings = drupal_to_js(array('sheetnode' => array(
-      'value' => socialcalc_save($this->render_sheet()),
-      'image_prefix' => $base_url . '/' . drupal_get_path('module', 'sheetnode') . '/socialcalc/images/sc-',
-      'view_id' => 'sheetview',
-      'edit_id' => 'edit-style-options-sheetsave',
-      'editing' => FALSE,
-      'fiddling' => variable_get('sheetnode_fiddle', SHEETNODE_VIEW_FIDDLE),
-      'perm_edit_sheet_settings' => user_access('edit sheet settings') ? TRUE : FALSE,
-      'context' => array('entity-name' => 'view', 'oid' => isset($this->view->vid) ? $this->view->vid : $this->view->name),
-    )));
-    $javascript = <<<EOS
-Drupal.behaviors.sheetnode = function(context) {
-  jQuery.extend(Drupal.settings, $settings);
-  Drupal.sheetnode.start(context);
-}
-EOS;
-    drupal_add_js($javascript, 'inline');
-    return '<div class="sheetview" id="sheetview"></div>';
+    $context = array('entity-name' => 'view', 'oid' => $this->view->name);
+    module_invoke_all('sheetnode_plugins', $value, FALSE, $context);
+
+    $sheet_id = drupal_clean_css_identifier('sheetview-' . $this->view->name . (empty($this->view->live_preview) ? '' : '-preview'));
+    drupal_add_js(array('sheetnode' => array($sheet_id => array(
+      'value' => $value,
+      'imagePrefix' => base_path() . $path . '/socialcalc/images/sc-',
+      'containerElement' => $sheet_id,
+      'saveElement' => $save_element,
+      'viewMode' => variable_get('sheetnode_view_mode', SHEETNODE_VIEW_FIDDLE),
+      'showToolbar' => variable_get('sheetnode_view_toolbar', FALSE),
+      'permissions' => array(
+        'edit sheetnode settings' => user_access('edit sheetnode settings'),
+      ),
+      'context' => $context,
+    ))), 'setting');
+    return '<div class="sheetview" id="' . $sheet_id . '"></div>';
   }
 
-  function get_real_field_name($field_name) {
+  function render() {
+    $value = socialcalc_save($this->render_sheet());
+    return $this->render_inject($value, FALSE);
+  }
+
+  function find_field($field_name) {
     if (isset($this->view->field[$field_name])) return $field_name;
     foreach ($this->view->field as $field => $info) {
       if ($info->field_alias == $field_name) return $field;
       if (strcasecmp($info->label(), $field_name) == 0) return $field;
+      if (method_exists($info, 'ui_name') && strcasecmp($info->ui_name(), $field_name) == 0) return $field;
     }
     return FALSE;
   }
