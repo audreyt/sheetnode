@@ -60,7 +60,7 @@ class sheetnode_handler_field_range extends views_handler_field {
     }
 
     // Return themed or raw values.
-    return $this->options['raw'] ? $range : theme('sheetnode_range', $range, $this->options['labels']);
+    return $this->options['raw'] ? $range : theme('sheetnode_range', array('range' => $range, 'labels' => $this->options['labels']));
   }
 }
 

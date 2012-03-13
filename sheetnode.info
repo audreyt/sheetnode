@@ -3,10 +3,12 @@ description = Spreadsheet node using <a href="http://www.socialtext.net/open/ind
 package = Sheetnode
 core = 7.x
 
+stylesheets[all][] = socialcalc/socialcalc.css
 stylesheets[all][] = sheetnode.css
 
 files[] = views/sheetnode_handler_field_cell.inc
 files[] = views/sheetnode_handler_field_range.inc
+files[] = views/sheetnode_handler_field_named_range.inc
 files[] = views/sheetnode_handler_field_date.inc
 files[] = views/sheetnode_plugin_style.inc
 files[] = views/sheetnode_raw_plugin_style.inc

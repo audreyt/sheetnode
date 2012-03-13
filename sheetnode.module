@@ -543,25 +543,27 @@ function sheetnode_views_api() {
   );
 }
 
+define('SHEETNODE_RANGE_LABELS_ROW', 1);
+define('SHEETNODE_RANGE_LABELS_COL', 2);
+define('SHEETNODE_RANGE_LABELS_ROW_COL', 3);
+
 /**
  * Implements hook_theme().
  */
 function sheetnode_theme($existing, $type, $theme, $path) {
   return array(
     'sheetnode_range' => array(
-      'arguments' => array('range' => NULL, 'labels' => NULL),
+      'variables' => array('range' => NULL, 'labels' => SHEETNODE_RANGE_LABELS_ROW_COL),
     ),
   );
 }
 
-define('SHEETNODE_RANGE_LABELS_ROW', 1);
-define('SHEETNODE_RANGE_LABELS_COL', 2);
-define('SHEETNODE_RANGE_LABELS_ROW_COL', 3);
-
 /**
  * Theme function for sheetnode_range.
  */
-function theme_sheetnode_range($range, $labels = SHEETNODE_RANGE_LABELS_ROW_COL) {
+function theme_sheetnode_range($variables) {
+  $range = $variables['range'];
+  $labels = $variables['labels'];
   if (empty($range)) return '';
   require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
   list($c, $r) = socialcalc_coord_to_cr(key($range));
@@ -591,16 +593,7 @@ function theme_sheetnode_range($range, $labels = SHEETNODE_RANGE_LABELS_ROW_COL)
     }
   }
   $rows[] = $row;
-  return theme('table', $labels & SHEETNODE_RANGE_LABELS_COL ? $header : NULL, $rows);
-}
-
-/**
- * Implements hook_init().
- */
-function sheetnode_init() {
-  // TODO: This is here for the view admin page. Find another way to include them or at least restrict the path.
-  drupal_add_css(drupal_get_path('module', 'sheetnode') . '/socialcalc/socialcalc.css');
-  drupal_add_css(drupal_get_path('module', 'sheetnode') . '/sheetnode.css');
+  return theme('table', array('header' => $labels & SHEETNODE_RANGE_LABELS_COL ? $header : NULL, 'rows' => $rows));
 }
 
 /**
