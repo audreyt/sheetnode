@@ -131,9 +131,7 @@ function sheetnode_views_data() {
  * Implementation of hook_views_data_alter().
  */
 function sheetnode_views_data_alter(&$data) {
-  return;
-
-  $cck_info = _content_type_info();
+  $fieldapi_info = field_info_fields();
   foreach ($data as $table_name => $table_info) {
     foreach ($table_info as $field_name => $field_info) {
       // Add a SocialCalc date converter for each date field.
@@ -146,39 +144,33 @@ function sheetnode_views_data_alter(&$data) {
         $data[$table_name][$field_name . '_socialcalc'] = $date;
       }
 
-      // Add sheetnode fields for each CCK sheet field.
-      if (!empty($field_info['field']['content_field_name']) && $cck_info['fields'][ $field_info['field']['content_field_name'] ]['type'] == 'sheetfield') {
-        $field = $cck_info['fields'][ $field_info['field']['content_field_name'] ];
-        $label_truncated = truncate_utf8(t($field['widget']['label']), 10, TRUE);
-        $title = t('@label (!name)', array('@label' => t($field['widget']['label']), '!name' => $field['field_name']));
-        $title_short = check_plain($label_truncated);
-        $types = array();
-        foreach ($cck_info['content types'] as $type) {
-          if (isset($type['fields'][$field['field_name']])) {
-            $types[] = $type['name'];
-          }
-        }
-
+      // Add sheetnode handlers for each sheet field.
+      if (!empty($field_info['field']['field_name']) && $fieldapi_info[ $field_info['field']['field_name'] ]['type'] == 'sheetfield') {
         $cell = $field_info;
-        $cell['real field'] = $field_name;
-        $cell['title'] = $title . ' - ' . t('cell');
-        $cell['title short'] = $title_short . ' - ' . t('cell');
-        $cell['help'] = t('Cell reference - Appears in: @types', array('@types' => implode(', ', $types)));
+        $cell['title'] = $field_info['title'] . ' (' . $field_name . ':' . t('cell') . ')';
+        $cell['title short'] = $field_info['title short'] . ':' . t('cell');
+        $cell['help'] = t('Cell reference') . ' - ' . $field_info['help'];
         $cell['field']['handler'] = 'sheetnode_handler_field_cell';
-        unset($cell['filter'], $cell['argument'], $cell['relationship'], $cell['sort'], $cell['field']['title'], $cell['field']['title short']);
         $data[$table_name][$field_name . '_cell'] = $cell;
 
         $range = $cell;
-        $range['title'] = $title . ' - ' . t('range');
-        $range['title short'] = $title_short . ' - ' . t('range');
-        $range['help'] = t('Range reference - Appears in: @types', array('@types' => implode(', ', $types)));
+        $range['title'] = $field_info['title'] . ' (' . $field_name . ':' . t('range') . ')';
+        $range['title short'] = $field_info['title short'] . ':' . t('range');
+        $range['help'] = t('Range reference') . ' - ' . $field_info['help'];
         $range['field']['handler'] = 'sheetnode_handler_field_range';
         $data[$table_name][$field_name . '_range'] = $range;
 
+        $content = $cell;
+        $content['title'] = $field_info['title'] . ' (' . $field_name . ':' . t('content') . ')';
+        $content['title short'] = $field_info['title short'] . ':' . t('content');
+        $content['help'] = t('Content') . ' - ' . $field_info['help'];
+        $content['field']['handler'] = 'views_handler_field';
+        $data[$table_name][$field_name . '_content'] = $content;
+
         $named_range = $cell;
-        $named_range['title'] = $title . ' - ' . t('named range');
-        $named_range['title short'] = $title_short . ' - ' . t('named range');
-        $named_range['help'] = t('Named range - Appears in: @types', array('@types' => implode(', ', $types)));
+        $named_range['title'] = $field_info['title'] . ' (' . $field_name . ':' . t('named range') . ')';
+        $named_range['title short'] = $field_info['title short'] . ':' . t('named range');
+        $named_range['help'] = t('Named range') . ' - ' . $field_info['help'];
         $named_range['field']['handler'] = 'sheetnode_handler_field_named_range';
         $data[$table_name][$field_name . '_named_range'] = $named_range;
       }
