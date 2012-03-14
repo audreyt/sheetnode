@@ -43,13 +43,12 @@ class sheetnode_plugin_style extends views_plugin_style {
       '#weight' => 98,
     );
     $id = 'edit-style-options-template';
-    $output = $this->render_inject($this->options['template'], $id);
     $form['template'] = array(
       '#type' => 'hidden', 
       '#attributes' => array('id' => $id), 
-      '#prefix' => $output, 
       '#weight' => 99
     );
+    $this->render_inject($this->options['template'], $id, $form['template'], '#prefix');
   }
 
   function render_sheet() {
@@ -374,25 +373,11 @@ class sheetnode_plugin_style extends views_plugin_style {
     return $socialcalc;
   }
 
-  function render_inject($value, $save_element) {
+  function render_inject($value, $save_element, &$element, $attribute) {
     $path = drupal_get_path('module', 'sheetnode');
-    drupal_add_js($path . '/socialcalc/socialcalcconstants.js', array('weight' => 1));
-    drupal_add_js($path . '/socialcalc/socialcalc-3.js', array('weight' => 2));
-    drupal_add_js($path . '/socialcalc/socialcalctableeditor.js', array('weight' => 3));
-    drupal_add_js($path . '/socialcalc/formatnumber2.js');
-    drupal_add_js($path . '/socialcalc/formula1.js');
-    drupal_add_js($path . '/socialcalc/socialcalcpopup.js', array('weight' => 4));
-    drupal_add_js($path . '/socialcalc/socialcalcspreadsheetcontrol.js', array('weight' => 5));
-    drupal_add_js($path . '/socialcalc/socialcalcviewer.js', array('weight' => 5));
-    drupal_add_js($path . '/sheetnode.js', array('weight' => 6));
-    drupal_add_css($path . '/socialcalc/socialcalc.css');
-    drupal_add_css($path . '/sheetnode.css');
-
     $context = array('entity-name' => 'view', 'oid' => $this->view->name);
-    module_invoke_all('sheetnode_plugins', $value, FALSE, $context);
-
     $sheet_id = drupal_clean_css_identifier('sheetview-' . $this->view->name . (empty($this->view->live_preview) ? '' : '-preview'));
-    drupal_add_js(array('sheetnode' => array($sheet_id => array(
+    $setting = array('sheetnode' => array($sheet_id => array(
       'value' => $value,
       'imagePrefix' => base_path() . $path . '/socialcalc/images/sc-',
       'containerElement' => $sheet_id,
@@ -403,13 +388,32 @@ class sheetnode_plugin_style extends views_plugin_style {
         'edit sheetnode settings' => user_access('edit sheetnode settings'),
       ),
       'context' => $context,
-    ))), 'setting');
-    return '<div class="sheetview" id="' . $sheet_id . '"></div>';
+    )));
+    
+    $element[$attribute] = '<div class="sheetview" id="' . $sheet_id . '"></div>';
+    $element['#attached']['js'] = array(
+      $path . '/socialcalc/socialcalcconstants.js' => array('weight' => 1),
+      $path . '/socialcalc/socialcalc-3.js' => array('weight' => 2),
+      $path . '/socialcalc/socialcalctableeditor.js' => array('weight' => 3),
+      $path . '/socialcalc/formatnumber2.js' => array(),
+      $path . '/socialcalc/formula1.js' => array(),
+      $path . '/socialcalc/socialcalcpopup.js' => array('weight' => 4),
+      $path . '/socialcalc/socialcalcspreadsheetcontrol.js' => array('weight' => 5),
+      $path . '/socialcalc/socialcalcviewer.js' => array('weight' => 5),
+      $path . '/sheetnode.js' => array('weight' => 6),
+      array('data' => $setting, 'type' => 'setting'),
+    );
+    $element['#attached']['css'] = array(
+      $path . '/socialcalc/socialcalc.css',
+      $path . '/sheetnode.css',
+    );
   }
 
   function render() {
     $value = socialcalc_save($this->render_sheet());
-    return $this->render_inject($value, FALSE);
+    $element = array();
+    $this->render_inject($value, FALSE, $element, '#markup');
+    return $element;
   }
 
   function find_field($field_name) {
