@@ -295,30 +295,32 @@ function sheetnode_update($node) {
  * Implements hook_nodeapi().
  */
 function sheetnode_nodeapi($node, $op) {
-  if ($op == 'update index') {
-    // Update index for sheetnodes and sheetfields.
-    if ($node->type == 'sheetnode') {
-      return _sheetnode_update_index($node->sheetnode['value']);
-    }
-    else {
-      $cck_info = _content_type_info();
-      $output = '';
-      foreach ($cck_info['content types'][$node->type]['fields'] as $field_name => $field) {
-        if ($field['type'] == 'sheetfield') {
-          foreach ($node->$field_name as $item) {
-            $output .= _sheetnode_update_index($item['value']);
-          }
-        }
-      }
-      return $output;
-    }
-  }
-  else if ($op == 'presave' && $node->type == 'sheetnode' && isset($node->devel_generate)) {
+  if ($op == 'presave' && $node->type == 'sheetnode' && isset($node->devel_generate)) {
     // Generate random spreadsheets for sheetnodes.
     $node->sheetnode = array(
       'template' => NULL,
     ) + sheetnode_content_generate($node, NULL);
   }
+}
+
+/**
+ * Implements hook_node_update_index().
+ */
+function sheetnode_node_update_index($node) {
+  $output = '';
+  if ($node->type == 'sheetnode') {
+    $output .= _sheetnode_update_index($node->sheetnode['value']);
+  }
+  $instances = field_info_instances('node', $node->type);
+  $fields = field_info_fields();
+  foreach ($instances as $field_name => $instance) {
+    if ($fields[$field_name]['type'] == 'sheetfield') {
+      foreach ($node->{$field_name}[$node->language] as $item) {
+        $output .= _sheetnode_update_index($item['value']);
+      }
+    }
+  }
+  return $output;
 }
 
 /**
