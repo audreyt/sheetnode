@@ -292,14 +292,14 @@ function sheetnode_update($node) {
 }
 
 /**
- * Implements hook_nodeapi().
+ * Implements hook_node_presave().
  */
-function sheetnode_nodeapi($node, $op) {
-  if ($op == 'presave' && $node->type == 'sheetnode' && isset($node->devel_generate)) {
+function sheetnode_node_presave($node) {
+  if ($node->type == 'sheetnode' && isset($node->devel_generate)) {
     // Generate random spreadsheets for sheetnodes.
     $node->sheetnode = array(
       'template' => NULL,
-    ) + sheetnode_content_generate($node, NULL);
+    ) + _sheetnode_devel_generate($node, NULL, NULL, NULL);
   }
 }
 
@@ -669,9 +669,21 @@ function sheetnode_field_is_empty($item, $field) {
 }
 
 /**
-* Implements hook_content_generate().
-*/
-function sheetnode_content_generate($node, $field) {
+ * Implements hook_devel_generate().
+ */
+function sheetnode_devel_generate($object, $field, $instance, $bundle) {
+  if (field_behaviors_widget('multiple values', $instance) == FIELD_BEHAVIOR_CUSTOM) {
+    return devel_generate_multiple('_sheetnode_devel_generate', $object, $field, $instance, $bundle);
+  }
+  else {
+    return _sheetnode_devel_generate($object, $field, $instance, $bundle);
+  }
+}
+
+/**
+ * Helper to generate random spreadsheet.
+ */
+function _sheetnode_devel_generate($object, $field, $instance, $bundle) {
   require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
 
   $sc = array(
