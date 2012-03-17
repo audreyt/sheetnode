@@ -4,7 +4,10 @@
   margin-bottom: 30px;
 }
 
-.sheetview table, .sheetview table tr td, .sheetview table tr th {
+.sheetview table, 
+.sheetview table tr, 
+.sheetview table tr td, 
+.sheetview table tr th {
   padding: 0;
   margin: 0;
   line-height: normal;
@@ -17,10 +20,6 @@
   width: auto;
   background: transparent;
   vertical-align: top;
-}
-
-.sheetview table tr:hover {
-  background: transparent;
 }
 
 .sheetview img {
