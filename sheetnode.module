@@ -351,6 +351,7 @@ function _sheetnode_update_index($value) {
 
 /**
  * Implements hook_token_list().
+ * TODO
  */
 function sheetnode_token_list($type = 'all') {
   if ($type == 'all' || $type == 'node') {
@@ -371,6 +372,7 @@ function sheetnode_token_list($type = 'all') {
 
 /**
  * Implements hook_token_values().
+ * TODO
  */
 function sheetnode_token_values($type, $object = NULL) {
   $tokens = array();
@@ -725,6 +727,7 @@ function sheetnode_field_formatter_info() {
       'label' => t('Default'),
       'field types' => array('sheetfield'),
     ),
+    // TODO
     'socialcalc_date' => array(
       'label' => t('SocialCalc'),
       'field types' => array('date', 'datetime', 'datestamp'),
@@ -802,7 +805,7 @@ function sheetnode_field_widget_form(&$form, &$form_state, $field, $instance, $l
 }
 
 /**
- * Implements FAPI hook_element_info().
+ * Implements hook_element_info().
  */
 function sheetnode_element_info() {
   return array(
@@ -847,6 +850,7 @@ function _sheetnode_spreadsheet_process($element, &$form_state, $form) {
 
 /**
  * Theme function for SocialCalc date formatter.
+ * TODO
  */
 function theme_sheetnode_formatter_socialcalc_date($element) {
   require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
@@ -866,6 +870,7 @@ function theme_sheetnode_formatter_socialcalc_date($element) {
 
 /**
  * API function to return a sheet given a name.
+ * TODO
  */
 function sheetnode_find_sheet($sheetname) {
   require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
@@ -935,6 +940,7 @@ function sheetnode_find_sheet($sheetname) {
 
 /**
  * AJAX function to return a sheet value. 
+ * TODO
  */
 function _sheetnode_ajax_load($sheetname = NULL) {
   // Parse the sheetname which might contain extra args separated by forward-slash.
@@ -955,6 +961,7 @@ function _sheetnode_ajax_load($sheetname = NULL) {
 
 /**
  * AJAX function to return a token value.
+ * TODO
  */
 function _sheetnode_ajax_token($oid = NULL, $entity = NULL, $token = NULL) {
   if (!$oid) $oid = $_REQUEST['oid'];
@@ -985,6 +992,7 @@ function _sheetnode_ajax_token($oid = NULL, $entity = NULL, $token = NULL) {
 
 /**
  * AJAX function to return a field value.
+ * TODO
  */
 function _sheetnode_ajax_field($oid = NULL, $entity = NULL, $field = NULL) {
   if (!$oid) $oid = $_REQUEST['oid'];
@@ -1079,6 +1087,7 @@ function _sheetnode_template_load($tid) {
 
 /**
  * Helper function to load a Drupal entity.
+ * TODO
  */
 function _sheetnode_load_entity($entity, $oid) {
   if (function_exists($entity . '_load')) { // call load function directly
@@ -1096,6 +1105,7 @@ function _sheetnode_load_entity($entity, $oid) {
 
 /**
  * API function to get all sheetfields of a node type.
+ * TODO
  */
 function sheetnode_get_sheetfields($type) {
   if (!module_exists('content')) return FALSE;
