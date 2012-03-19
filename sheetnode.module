@@ -722,10 +722,11 @@ function _sheetnode_lcg_randf($min, $max) {
  * Implements hook_field_formatter_info().
  */
 function sheetnode_field_formatter_info() {
-  $formatters = array();
-  $formatters['sheetfield_default'] = array(
-    'label' => t('Default'),
-    'field types' => array('sheetfield'),
+  $formatters = array(
+    'sheetfield_default' => array(
+      'label' => t('Default'),
+      'field types' => array('sheetfield'),
+    ),
   );
   if (module_exists('date')) {
     $formatters['socialcalc_date'] = array(
