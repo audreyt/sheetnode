@@ -82,7 +82,7 @@ function sheetnode_load($nodes) {
   }
   if (empty($vids)) return;
 
-  $sheetnodes = db_query('SELECT * FROM {sheetnode} WHERE vid IN (:vids)', array(':vids' => $vids));
+  $sheetnodes = db_query("SELECT * FROM {sheetnode} WHERE vid IN (:vids)", array(':vids' => $vids));
   foreach ($sheetnodes as $sheetnode) {
     $nodes[$sheetnode->nid]->sheetnode = (array)$sheetnode;
   }
@@ -187,6 +187,7 @@ function sheetnode_validate($node, $form, &$form_state) {
  * Implements hook_form_alter().
  */
 function sheetnode_form_alter(&$form, $form_state, $form_id) {
+  // TODO
   // Sheetfield CCK settings:
   // * Force fieldset to open to avoid b0rked sheet layout.
   // * Insert extra template element for default values.
@@ -283,6 +284,7 @@ function sheetnode_update($node) {
     _sheetnode_save($node->nid, $node->vid, $node->sheetnode['value']);
   }
   else if (!empty($node->revision)) {
+    // TODO
     // reverting a revision
     db_query('INSERT INTO {sheetnode} (nid, vid, value) SELECT old.nid, %d, old.value FROM sheetnode AS old WHERE old.vid=%d', array($node->vid, $node->old_vid));
   }
@@ -878,32 +880,37 @@ function sheetnode_find_sheet($sheetname) {
     $node = node_load(intval($sheetname));
   }
   else {
-    $nid = db_result(db_query("SELECT nid FROM {node} WHERE UCASE(title) = '%s' LIMIT 1", db_escape_string(strtoupper($sheetname))));
+    $nid = db_query("SELECT nid FROM {node} WHERE title = :title LIMIT 1", 
+      array(':title' => $sheetname)
+    )->fetchField();
     if ($nid) {
       $node = node_load($nid);
     }
   }
 
   // Is it a sheetnode?
-  if ($node && $node->type == 'sheetnode') {
+  if ($node && $node->type == 'sheetnode' && empty($args[0])) {
     $value = $node->sheetnode['value'];
     $title = $node->title;
   }
 
   // Is it a sheetfield?
-  if (!$value && $node && module_exists('content')) {
+  if (!$value && $node) {
     $target_field = empty($args[0]) ? FALSE : $args[0];
     $target_delta = empty($args[1]) ? 0 : intval($args[1]);
-    $type = content_types($node->type);
-    foreach ($type['fields'] as $field_name => $field_info) {
-      if (
-        $field_info['type'] == 'sheetfield' && 
-        (!$target_field || 0 == strcasecmp($target_field, $field_name) || 0 == strcasecmp($target_field, $field_info['widget']['label'])) &&
-        isset($node->$field_name) && 
-        isset($node->{$field_name}[$target_delta])
+    foreach (sheetnode_get_sheetfields($node->type) as $field_name => $field_info) {
+      if ((!$target_field || 
+           0 == strcasecmp($target_field, $field_name) || 
+           0 == strcasecmp($target_field, $field_info['instance']['label'])
+          ) &&
+          !empty($node->{$field_name}[$node->language][$target_delta])
       ) {
-        $value = $node->{$field_name}[$target_delta]['value'];
-        $title = trim(sprintf("%s %s %s", $node->title, $field_info['widget']['label'], $target_delta ? strval($target_delta) : ''));
+        $value = $node->{$field_name}[$node->language][$target_delta]['value'];
+        $title = trim(sprintf("%s %s %s", 
+          $node->title, 
+          $field_info['instance']['label'], 
+          $target_delta ? strval($target_delta) : ''
+        ));
         break;
       }
     }
@@ -919,8 +926,8 @@ function sheetnode_find_sheet($sheetname) {
           $view->set_arguments($args);
         }
         $value = $view->render($display->id);
-        $title = $display->get_option('title');
-        header('Content-type: text/html'); // Our style plugin sets this to text/plain
+        $title = $display->handler->get_option('title');
+        drupal_add_http_header('Content-type', 'text/html; charset=utf-8'); // Our style plugin sets this to text/plain
       } 
     }
   }
@@ -930,7 +937,6 @@ function sheetnode_find_sheet($sheetname) {
 
 /**
  * AJAX function to return a sheet value. 
- * TODO
  */
 function _sheetnode_ajax_load($sheetname = NULL) {
   // Parse the sheetname which might contain extra args separated by forward-slash.
@@ -946,7 +952,7 @@ function _sheetnode_ajax_load($sheetname = NULL) {
       echo $parts['sheet'];
     }
   }
-  exit();
+  drupal_exit();
 }
 
 /**
@@ -973,11 +979,11 @@ function _sheetnode_ajax_token($oid = NULL, $entity = NULL, $token = NULL) {
         'type' => is_numeric($value) ? 'n' : 'th',
         'value' => $value,
       ));
-      exit();
+      drupal_exit();
     }
   }
   drupal_json(array('value' => '', 'type' => 'e#NAME?'));
-  exit();
+  drupal_exit();
 }
 
 /**
@@ -1027,11 +1033,11 @@ function _sheetnode_ajax_field($oid = NULL, $entity = NULL, $field = NULL) {
         'type' => is_numeric($value) ? 'n' : 'th',
         'value' => $value,
       ));
-      exit();
+      drupal_exit();
     }
   }
   drupal_json(array('value' => '', 'type' => 'e#NAME?'));
-  exit();
+  drupal_exit();
 }
 
 /**
@@ -1103,6 +1109,7 @@ function sheetnode_get_sheetfields($type) {
   foreach ($instances as $field_name => $instance) {
     if ($fields[$field_name]['type'] == 'sheetfield') {
       $sheetfields[$field_name] = $fields[$field_name];
+      $sheetfields[$field_name]['instance'] = $instance;
     }
   }
   return $sheetfields;
