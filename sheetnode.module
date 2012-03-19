@@ -722,17 +722,18 @@ function _sheetnode_lcg_randf($min, $max) {
  * Implements hook_field_formatter_info().
  */
 function sheetnode_field_formatter_info() {
-  return array(
-    'sheetfield_default' => array(
-      'label' => t('Default'),
-      'field types' => array('sheetfield'),
-    ),
-    // TODO
-    'socialcalc_date' => array(
+  $formatters = array();
+  $formatters['sheetfield_default'] = array(
+    'label' => t('Default'),
+    'field types' => array('sheetfield'),
+  );
+  if (module_exists('date')) {
+    $formatters['socialcalc_date'] = array(
       'label' => t('SocialCalc'),
       'field types' => array('date', 'datetime', 'datestamp'),
-    ),
-  );
+    );
+  }
+  return $formatters;
 }
 
 /**
@@ -755,6 +756,18 @@ function sheetnode_field_formatter_view($entity_type, $entity, $field, $instance
       }
       break;
     case 'socialcalc_date':
+      require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
+      foreach ($items as $delta => $item) {
+        $value = $item['value'];
+        $timezone = isset($item['timezone']) ? $item['timezone'] : '';
+        $timezone = date_get_timezone($field['settings']['tz_handling'], $timezone);
+        $timezone_db = date_get_timezone_db($field['settings']['tz_handling']);
+        $db_format = date_type_format($field['type']);
+        $date = new DateObject($value, $timezone_db, $db_format);
+        $date->limitGranularity($field['settings']['granularity']);
+        date_timezone_set($date, timezone_open($timezone));
+        $element[$delta] = array('#markup' => socialcalc_import_date($date));
+      }
       break;
   }
 
