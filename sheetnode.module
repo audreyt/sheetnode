@@ -311,13 +311,9 @@ function sheetnode_node_update_index($node) {
   if ($node->type == 'sheetnode') {
     $output .= _sheetnode_update_index($node->sheetnode['value']);
   }
-  $instances = field_info_instances('node', $node->type);
-  $fields = field_info_fields();
-  foreach ($instances as $field_name => $instance) {
-    if ($fields[$field_name]['type'] == 'sheetfield') {
-      foreach ($node->{$field_name}[$node->language] as $item) {
-        $output .= _sheetnode_update_index($item['value']);
-      }
+  foreach (sheetnode_get_sheetfields($node->type) as $field_name => $field) {
+    foreach ($node->{$field_name}[$node->language] as $item) {
+      $output .= _sheetnode_update_index($item['value']);
     }
   }
   return $output;
@@ -1099,16 +1095,14 @@ function _sheetnode_load_entity($entity, $oid) {
 
 /**
  * API function to get all sheetfields of a node type.
- * TODO
  */
 function sheetnode_get_sheetfields($type) {
-  if (!module_exists('content')) return FALSE;
-
   $sheetfields = array();
-  $type_info = content_types($type);
-  foreach ($type_info['fields'] as $field) {
-    if ($field['type'] == 'sheetfield') {
-      $sheetfields[] = $field;
+  $instances = field_info_instances('node', $type);
+  $fields = field_info_fields();
+  foreach ($instances as $field_name => $instance) {
+    if ($fields[$field_name]['type'] == 'sheetfield') {
+      $sheetfields[$field_name] = $fields[$field_name];
     }
   }
   return $sheetfields;
