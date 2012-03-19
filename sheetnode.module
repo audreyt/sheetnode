@@ -863,26 +863,6 @@ function _sheetnode_spreadsheet_process($element, &$form_state, $form) {
 }
 
 /**
- * Theme function for SocialCalc date formatter.
- * TODO
- */
-function theme_sheetnode_formatter_socialcalc_date($element) {
-  require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
-
-  $field_name = $element['#field_name'];
-  $fields = content_fields();
-  $field = $fields[$field_name];
-  $item = $element['#item'];
-
-  $value = $item['value'];
-  if ($field['type'] == DATE_ISO) {
-    $value = str_replace(' ', 'T', date_fuzzy_datetime($value));
-  }
-  $date = date_make_date($value, NULL, $field['type'], $field['granularity']);
-  return socialcalc_import_date($date);
-}
-
-/**
  * API function to return a sheet given a name.
  * TODO
  */
