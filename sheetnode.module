@@ -877,7 +877,6 @@ function _sheetnode_spreadsheet_process($element, &$form_state, $form) {
 
 /**
  * API function to return a sheet given a name.
- * TODO
  */
 function sheetnode_find_sheet($sheetname) {
   require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
