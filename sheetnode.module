@@ -979,7 +979,7 @@ function _sheetnode_ajax_token($oid = NULL, $entity = NULL, $token = NULL) {
   if (!$token) $token = $_REQUEST['token'];
 
   $value = NULL;
-  $object = _sheetnode_load_entity($entity, $oid);
+  $object = _sheetnode_entity_load($entity, $oid);
   if ($object) {
     // Do the token replacement.
     if (module_exists('token')) {
@@ -988,21 +988,19 @@ function _sheetnode_ajax_token($oid = NULL, $entity = NULL, $token = NULL) {
 
     // If found, send it back.
     if ($value) {
-      require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
-      drupal_json(array(
+      drupal_json_output(array(
         'type' => is_numeric($value) ? 'n' : 'th',
         'value' => $value,
       ));
       drupal_exit();
     }
   }
-  drupal_json(array('value' => '', 'type' => 'e#NAME?'));
+  drupal_json_output(array('value' => '', 'type' => 'e#NAME?'));
   drupal_exit();
 }
 
 /**
  * AJAX function to return a field value.
- * TODO
  */
 function _sheetnode_ajax_field($oid = NULL, $entity = NULL, $field = NULL) {
   if (!$oid) $oid = $_REQUEST['oid'];
@@ -1010,23 +1008,23 @@ function _sheetnode_ajax_field($oid = NULL, $entity = NULL, $field = NULL) {
   if (!$field) $field = $_REQUEST['field'];
 
   $value = NULL;
-  $object = _sheetnode_load_entity($entity, $oid);
+  $object = _sheetnode_entity_load($entity, $oid);
   if ($object) {
-    // Try CCK field.
-    if ($entity == 'node' && module_exists('content')) {
-      $field_info = content_fields($field, $object->type);
-      if ($field_info) {
-        $field_info['display_settings']['label']['format'] = 'hidden';
-        $value = content_view_field($field_info, $object, FALSE, TRUE);
+    // Try field.
+    $field_info = field_info_instance($entity, $field, field_extract_bundle($entity, $object));
+    if ($field_info) {
+      $value = field_view_field($entity, $object, $field, array('label' => 'hidden'));
+      if ($value) {
+        $value = drupal_render($value);
       }
     }
 
-    // Try rendered node field.
-    if (!$value && $entity == 'node') {
-      $node = drupal_clone($object);
-      $node = node_build_content($node);
-      if (isset($node->content[$field])) {
-        $value = drupal_render($node->content[$field]);
+    // Try rendered field with raw build functions.
+    $build_func = $entity . '_build_content';
+    if (!$value && function_exists($build_func)) {
+      $build_func($object);
+      if (isset($object->content[$field])) {
+        $value = drupal_render($object->content[$field]);
       }
     }
 
@@ -1042,15 +1040,14 @@ function _sheetnode_ajax_field($oid = NULL, $entity = NULL, $field = NULL) {
 
     // If found, send it back.
     if ($value) {
-      require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
-      drupal_json(array(
+      drupal_json_output(array(
         'type' => is_numeric($value) ? 'n' : 'th',
         'value' => $value,
       ));
       drupal_exit();
     }
   }
-  drupal_json(array('value' => '', 'type' => 'e#NAME?'));
+  drupal_json_output(array('value' => '', 'type' => 'e#NAME?'));
   drupal_exit();
 }
 
@@ -1097,20 +1094,10 @@ function _sheetnode_template_load($tid) {
 
 /**
  * Helper function to load a Drupal entity.
- * TODO
  */
-function _sheetnode_load_entity($entity, $oid) {
-  if (function_exists($entity . '_load')) { // call load function directly
-    return call_user_func($entity . '_load', $oid);
-  }
-  if (module_exists('views_bulk_operations')) { // get entity info from VBO
-    $object_info = _views_bulk_operations_get_object_info();
-    if (isset($object_info[$entity]) && function_exists($object_info[$entity]['load'])) {
-      return call_user_func($object_info[$entity]['load'], $oid);
-    }
-  }
-  watchdog('sheetnode', 'Could not load entity %entity: No load function found.', array('%entity' => $entity), WATCHDOG_WARNING);
-  return NULL;
+function _sheetnode_entity_load($entity, $oid) {
+  $entities = entity_load($entity, array($oid));
+  return @$entities[$oid];
 }
 
 /**

@@ -47,11 +47,10 @@ Drupal.sheetnode.prototype.functionsSetup = function() {
       type: 'POST',
       url: Drupal.settings.basePath+'sheetnode/field',
       data: 'oid='+oid.value+'&entity='+escape(entity.value)+'&field='+escape(field.value),
-      datatype: 'json',
+      dataType: 'json',
       async: false,
       success: function (data) {
-        var result = Drupal.parseJson(data);
-        operand.push(result);
+        operand.push(data);
       }
     });
   }, -1, "drupalfield", "", "drupal"];
@@ -75,11 +74,10 @@ Drupal.sheetnode.prototype.functionsSetup = function() {
       type: 'POST',
       url: Drupal.settings.basePath+'sheetnode/token',
       data: 'oid='+oid.value+'&entity='+escape(entity.value)+'&token='+escape(token.value),
-      datatype: 'json',
+      dataType: 'json',
       async: false,
       success: function (data) {
-        var result = Drupal.parseJson(data);
-        operand.push(result);
+        operand.push(data);
       }
     });
   }, -1, "drupaltoken", "", "drupal"];
@@ -113,7 +111,7 @@ Drupal.sheetnode.prototype.loadsheetSetup = function() {
       type: 'POST',
       url: Drupal.settings.basePath+'sheetnode/load',
       data: 'sheetname='+escape(sheetname),
-      datatype: 'text',
+      dataType: 'text',
       async: false
     }).responseText;
     if (data !== null) {
