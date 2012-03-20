@@ -971,7 +971,6 @@ function _sheetnode_ajax_load($sheetname = NULL) {
 
 /**
  * AJAX function to return a token value.
- * TODO
  */
 function _sheetnode_ajax_token($oid = NULL, $entity = NULL, $token = NULL) {
   if (!$oid) $oid = $_REQUEST['oid'];
@@ -982,9 +981,7 @@ function _sheetnode_ajax_token($oid = NULL, $entity = NULL, $token = NULL) {
   $object = _sheetnode_entity_load($entity, $oid);
   if ($object) {
     // Do the token replacement.
-    if (module_exists('token')) {
-      $value = token_replace($token, $entity, $object);
-    }
+    $value = token_replace($token, array($entity => $object));
 
     // If found, send it back.
     if ($value) {
