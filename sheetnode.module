@@ -960,6 +960,7 @@ function _sheetnode_ajax_load($sheetname = NULL) {
   list($value, $title) = sheetnode_find_sheet($sheetname);
 
   // Found a spreadsheet: return it.
+  drupal_add_http_header('Content-type', 'text/plain; charset=utf-8');
   if ($value) {
     $parts = socialcalc_parse_parts($value);
     if (isset($parts['sheet'])) {
