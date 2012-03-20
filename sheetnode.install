@@ -36,7 +36,6 @@ function sheetnode_schema_7001() {
     'primary key' => array('vid'),
     'unique keys' => array(
       'nid_vid' => array('nid', 'vid'), 
-      'vid' => array('vid'),
     ),
     'foreign keys' => array(
       'node_revision' => array(

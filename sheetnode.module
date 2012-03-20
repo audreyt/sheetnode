@@ -115,6 +115,18 @@ function sheetnode_delete(&$node) {
 }
 
 /**
+ * Implements hook_node_revision_delete().
+ */
+function sheetnode_node_revision_delete($node) {
+  if ($node->type == 'sheetnode') {
+    db_delete('sheetnode')
+      ->condition('vid', $node->vid)
+      ->execute();
+  }
+}
+
+
+/**
  * Implements hook_form().
  */
 function sheetnode_form($node, &$form_state) {
@@ -241,9 +253,17 @@ function sheetnode_update($node) {
     _sheetnode_save($node->nid, $node->vid, $node->sheetnode['value']);
   }
   else if (!empty($node->revision)) {
-    // TODO
     // reverting a revision
-    db_query('INSERT INTO {sheetnode} (nid, vid, value) SELECT old.nid, %d, old.value FROM sheetnode AS old WHERE old.vid=%d', array($node->vid, $node->old_vid));
+    dsm($node->old_vid);
+    $value = db_query("SELECT value FROM {sheetnode} WHERE vid = :old", array(':old' => $node->old_vid))->fetchField();
+    dsm($value);
+    db_insert('sheetnode')
+      ->fields(array(
+        'vid' => $node->vid,
+        'nid' => $node->nid,
+        'value' => $value,
+      ))
+      ->execute();
   }
   if (!empty($node->sheetnode['template']) && user_access('create sheetnode template')) {
     _sheetnode_template_save($node->vid, $node->sheetnode['template'], $node->sheetnode['value']);
@@ -746,7 +766,6 @@ function sheetnode_field_widget_info() {
  * Implements hook_field_widget_form().
  */
 function sheetnode_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
-
   $value = 
     isset($form_state['input'][$element['#field_name']][$langcode][$delta]['value']) ? 
       $form_state['input'][$element['#field_name']][$langcode][$delta]['value'] : (
@@ -1041,7 +1060,7 @@ function _sheetnode_ajax_field($oid = NULL, $entity = NULL, $field = NULL) {
  */
 function _sheetnode_save($nid, $vid, $value) {
   db_delete('sheetnode')
-    ->condition('nid', $nid)
+    ->condition('vid', $vid)
     ->execute();
   db_insert('sheetnode')
     ->fields(array(
