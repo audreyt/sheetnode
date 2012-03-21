@@ -325,56 +325,97 @@ function _sheetnode_update_index($value) {
 }
 
 /**
- * Implements hook_token_list().
- * TODO
+ * Implements hook_token_info().
  */
-function sheetnode_token_list($type = 'all') {
-  if ($type == 'all' || $type == 'node') {
-    return array(
-      'sheetnode' => array(
-        'sheetnode-????' => t('Enter a cell reference such as sheetnode-B52, sheetnode-C79, etc.'),
-      ),
-    );
+function sheetnode_token_info() {
+  $info['types']['sheet'] = array(
+    'name' => t('Sheet'),
+    'description' => t('Tokens related to sheets.'),
+    'needs-data' => 'sheet',
+  );
+  $info['tokens']['sheet']['cell'] = array(
+    'name' => t('Cell reference'),
+    'description' => t('A cell reference such as B52, C79, etc.'),
+    'dynamic' => TRUE,
+  );
+  $info['tokens']['node']['sheetnode'] = array(
+    'name' => t('Sheetnode'),
+    'description' => t('The sheet of the node.'),
+    'type' => 'sheet',
+  );
+  return $info;
+}
+
+/**
+ * Implements hook_tokens().
+ */
+function sheetnode_tokens($type, $tokens, array $data = array(), array $options = array()) {
+  $replacements = array();
+  $sanitize = !empty($options['sanitize']);
+
+  if ($type == 'sheet' && !empty($data['sheet'])) {
+    require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
+    $socialcalc = socialcalc_parse($data['sheet']);
+    $sc = $socialcalc['sheet'];
+
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        default:
+          list($token, $coord) = explode(':', $name, 2);
+          if ($token == 'cell' && isset($sc['cells'][$coord])) {
+            $c = $sc['cells'][$coord];
+            $replacements[$original] = isset($c['datavalue']) ? $c['datavalue'] : '';
+          }
+          break;
+      }
+    }
   }
-  if ($type == 'all' || $type == 'field') {
-    return array(
-      'sheetfield' => array(
-        '????' => t('Enter a cell reference such as sheetnode-B52, sheetnode-C79, etc.'),
-      ),
-    );
+
+  if ($type == 'node' && !empty($data['node']) && $data['node']->type == 'sheetnode') {
+    $node = $data['node'];
+
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        case 'sheetnode':
+          $replacements[$original] = $node->sheetnode['value'];
+          break;
+      }
+    }
+
+    if ($sheet_tokens = token_find_with_prefix($tokens, 'sheetnode')) {
+      $replacements += token_generate('sheet', $sheet_tokens, array('sheet' => $node->sheetnode['value']), $options);
+    }
+  }
+
+  return $replacements;
+}
+
+/**
+ * Implements hook_token_info_alter().
+ */
+function sheetnode_token_info_alter(&$info) {
+  $fields = field_info_fields();
+  foreach ($info['tokens']['node'] as $name => &$token_info) {
+    if (isset($fields[$name]) && $fields[$name]['type'] == 'sheetfield') {
+      $token_info['type'] = 'sheet';
+    }
   }
 }
 
 /**
- * Implements hook_token_values().
- * TODO
+ * Implements hook_tokens_alter().
  */
-function sheetnode_token_values($type, $object = NULL) {
-  $tokens = array();
-  if ($type == 'node' && $object->type == 'sheetnode') {
-    require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
-    $socialcalc = socialcalc_parse($object->sheetnode['value']);
-    $sc = $socialcalc['sheet'];
-    if (!empty($sc['cells'])) foreach ($sc['cells'] as $coord => $c) {
-      $tokens['sheetnode-' . $coord] = isset($c['datavalue']) ? $c['datavalue'] : '';
-    }
-  }
-  if ($type == 'node' && $object->type != 'sheetnode') {
-    foreach (content_fields(NULL, $object->type) as $field) {
-      if ($field['type_name'] == $object->type && $field['type'] == 'sheetfield') {
-        require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
-        $item = $object->{$field['field_name']}[0]; // To act like other CCK fields
-        $socialcalc = socialcalc_parse($item['value']);
-        if (!empty($socialcalc['sheet'])) {
-          $sc = $socialcalc['sheet'];
-          if (!empty($sc['cells'])) foreach ($sc['cells'] as $coord => $c) {
-            $tokens[$field['field_name'] . '-' . $coord] = isset($c['datavalue']) ? $c['datavalue'] : '';
-          }
-        }
+function sheetnode_tokens_alter(array &$replacements, array $context) {
+  if ($context['type'] == 'node' && !empty($context['data']['node'])) {
+    $node = $context['data']['node'];
+    $tokens = $context['tokens'];
+    foreach (sheetnode_get_sheetfields($node->type) as $field_name => $field_info) {
+      if ($sheet_tokens = token_find_with_prefix($tokens, $field_name)) {
+        // TODO: how to handle multi-valued fields here?
+        $replacements += token_generate('sheet', $sheet_tokens, array('sheet' => $node->{$field_name}[$node->language][0]['value']), $context['options']);
       }
     }
   }
-  return $tokens;
 }
 
 /**
