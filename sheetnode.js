@@ -242,6 +242,11 @@ Drupal.sheetnode.prototype.start = function() {
 
   // Prepare for fullscreen handling when clicking the SocialCalc icon.
   $('td#'+SocialCalc.Constants.defaultTableEditorIDPrefix+'logo img', this.$container).attr('title', Drupal.t('Fullscreen')).click(function() { self.fullscreen() });
+
+  // If we're in a Views UI dialog, disable closeOnEscape.
+  if ($('.ui-dialog-content').length) {
+    $('.ui-dialog-content').dialog('option', 'closeOnEscape', false);
+  }
   
   // Signal that we've processed this instance of sheetnode.
   this.$container.addClass('sheetview-processed');
