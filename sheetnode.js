@@ -243,9 +243,10 @@ Drupal.sheetnode.prototype.start = function() {
   // Prepare for fullscreen handling when clicking the SocialCalc icon.
   $('td#'+SocialCalc.Constants.defaultTableEditorIDPrefix+'logo img', this.$container).attr('title', Drupal.t('Fullscreen')).click(function() { self.fullscreen() });
 
-  // If we're in a Views UI dialog, disable closeOnEscape.
+  // If we're in a jQuery UI dialog, disable closeOnEscape and unbind the keypress event that interferes with our keyboard handling.
   if ($('.ui-dialog-content').length) {
     $('.ui-dialog-content').dialog('option', 'closeOnEscape', false);
+    $(document).unbind('keydown.dialog-overlay');
   }
   
   // Signal that we've processed this instance of sheetnode.
@@ -269,7 +270,7 @@ Drupal.sheetnode.prototype.fullscreen = function() {
     }
     this.spreadsheet.requestedHeight = this.beforeFullscreen.requestedHeight;
     this.resize();
-    $('body').css('overflow', 'auto');
+    $(document.body).css('overflow', 'auto');
     window.scroll(this.beforeFullscreen.x, this.beforeFullscreen.y);
   }
   else { // Going fullscreen:
@@ -282,7 +283,7 @@ Drupal.sheetnode.prototype.fullscreen = function() {
     };
 
     // Set values needed to go fullscreen.
-    $('body').append(this.$container).css('overflow', 'hidden');
+    $(document.body).append(this.$container).css('overflow', 'hidden');
     this.$container.addClass('sheetview-fullscreen');
     this.resize();
     window.scroll(0,0);
