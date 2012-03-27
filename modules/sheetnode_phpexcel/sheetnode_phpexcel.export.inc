@@ -13,8 +13,8 @@ function _sheetnode_phpexcel_export($format, $node) {
   }
   $sheetfields = sheetnode_get_sheetfields($node->type);
   if (!empty($sheetfields)) foreach ($sheetfields as $sheetfield) {
-    foreach ($node->{$sheetfield['field_name']} as $delta => $item) {
-      $sheets[$sheetfield['widget']['label'] .' '. ($delta+1)] = socialcalc_parse($item['value']);
+    foreach ($node->{$sheetfield['field_name']}[$node->language] as $delta => $item) {
+      $sheets[$sheetfield['instance']['label'] .' '. ($delta+1)] = socialcalc_parse($item['value']);
     }
   }
   if (empty($sheets)) return drupal_not_found();
