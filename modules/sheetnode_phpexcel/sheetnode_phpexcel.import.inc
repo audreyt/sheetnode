@@ -53,7 +53,9 @@ function _sheetnode_phpexcel_import_form_validate($form, &$form_state) {
 function _sheetnode_phpexcel_import_form_submit($form, &$form_state) {
   $file = file_save_upload('import', array('file_validate_extensions' => array($form['#plugin']['format'])));
   if ($file) {
-    sheetnode_phpexcel_batch_import(array($file->uri), NULL, '_sheetnode_phpexcel_import_callback');
+    $filepath = file_unmanaged_copy($file->uri);
+    file_delete($file);
+    sheetnode_phpexcel_batch_import(array($_FILES['files']['name']['import'] => $filepath), NULL, '_sheetnode_phpexcel_import_callback');
   }
 }
 
@@ -70,7 +72,7 @@ function _sheetnode_phpexcel_import_callback($node, $params, &$context) {
 
       $book->title = $workbook->getProperties()->getTitle();
       if (empty($book->title)) {
-        $book->title = t('Untitled Workbook');
+        $book->title = !empty($context['sandbox']['filename']) ? $context['sandbox']['filename'] : t('Untitled Workbook');
       }
       $book->name = $user->name;
       $book->book['bid'] = 'new';
@@ -96,17 +98,18 @@ function _sheetnode_phpexcel_import_callback($node, $params, &$context) {
   }
 }
 
-function _sheetnode_phpexcel_batch_import_file($uri, $callback, $params, &$context) {
+function _sheetnode_phpexcel_batch_import_file($filename, $filepath, $callback, $params, &$context) {
   module_load_include('inc', 'node', 'node.pages');
   set_time_limit(0);
   global $user;
 
   if (empty($context['sandbox']['workbook'])) {
     // Load workbook and get number of worksheets.
-    $workbook = PHPExcel_IOFactory::load(drupal_realpath($uri));
+    $workbook = PHPExcel_IOFactory::load($filepath);
     $context['sandbox']['workbook'] = serialize($workbook);
     $context['sandbox']['total'] = $workbook->getSheetCount();
     $context['sandbox']['current'] = 0;
+    $context['sandbox']['filename'] = $filename;
   }
   else {
     // Create sheetnode out of current sheet.

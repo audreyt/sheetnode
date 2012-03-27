@@ -81,8 +81,8 @@ function sheetnode_phpexcel_batch_import($files, $destination = NULL, $callback 
     'error_message' => t('Import process has encountered an error.'),
     'file' => drupal_get_path('module', 'sheetnode_phpexcel') . '/sheetnode_phpexcel.import.inc',
   );
-  foreach ($files as $uri) {
-    $batch['operations'][] = array('_sheetnode_phpexcel_batch_import_file', array($uri, $callback, $params));
+  foreach ($files as $filename => $filepath) {
+    $batch['operations'][] = array('_sheetnode_phpexcel_batch_import_file', array($filename, $filepath, $callback, $params));
   }
   batch_set($batch);
   batch_process($destination);
