@@ -55,7 +55,7 @@ function _sheetnode_phpexcel_import_form_submit($form, &$form_state) {
   if ($file) {
     $filepath = file_unmanaged_copy($file->uri);
     file_delete($file);
-    sheetnode_phpexcel_batch_import(array($_FILES['files']['name']['import'] => $filepath), NULL, '_sheetnode_phpexcel_import_callback');
+    sheetnode_phpexcel_batch_import(array($_FILES['files']['name']['import'] => drupal_realpath($filepath)), NULL, '_sheetnode_phpexcel_import_callback');
   }
 }
 
