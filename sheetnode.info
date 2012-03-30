@@ -2,6 +2,7 @@ name = Sheetnode
 description = Spreadsheet node using <a href="http://www.socialtext.net/open/index.cgi?socialcalc">SocialCalc</a>.
 package = Sheetnode
 core = 7.x
+configure = admin/config/system/sheetnode
 
 stylesheets[all][] = socialcalc/socialcalc.css
 stylesheets[all][] = sheetnode.css
