@@ -190,7 +190,7 @@ function sheetnode_phpexcel_menu() {
     );
   }
 
-  $items['admin/config/system/sheetnode/phpexcel'] = array(
+  $items['admin/config/content/sheetnode/phpexcel'] = array(
     'title' => 'PHPExcel',
     'access arguments' => array('administer site configuration'),
     'page callback' => 'drupal_get_form',

@@ -446,15 +446,15 @@ function sheetnode_menu() {
     'page arguments' => array('sheetnode_import_template'),
     'description' => 'Create a new sheetnode from an existing template.',
   );
-  $items['admin/config/system/sheetnode'] = array(
+  $items['admin/config/content/sheetnode'] = array(
     'title' => 'Sheetnode',
     'access arguments' => array('administer site configuration'),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('sheetnode_admin_settings'),
-    'description' => 'Sheetnode module settings',
+    'description' => 'Configure sheetnodes and sheetnode components.',
     'type' => MENU_NORMAL_ITEM,
   );
-  $items['admin/config/system/sheetnode/general'] = array(
+  $items['admin/config/system/content/general'] = array(
     'title' => 'General',
     'weight' => -10,
     'type' => MENU_DEFAULT_LOCAL_TASK,
