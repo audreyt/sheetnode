@@ -1,8 +1,6 @@
 <?php
 
-require_once(drupal_get_path('module', 'sheetnode') .'/socialcalc.inc');
-
-function _sheetnode_google_import_form() {
+function _sheetnode_google_import_form($form, &$form_state) {
   $form['username'] = array(
     '#type' => 'textfield',
     '#title' => t('Google username'),
@@ -12,72 +10,56 @@ function _sheetnode_google_import_form() {
     '#title' => t('Google password'),
   );
   $form['fetch'] = array(
-    '#type' => 'submit',
+    '#type' => 'button',
     '#value' => t('Fetch private spreadsheets'),
-    '#ahah' => array(
-      'path' => 'sheetnode/google/fetch',
+    '#ajax' => array(
       'method' => 'replace',
       'wrapper' => 'sheetnode-google-spreadsheet-key',
+      'callback' => '_sheetnode_google_import_fetch',
     ),
   );
-  $form['google'] = array(
-    '#type' => 'markup',
-    '#value' => '',
+  $form['key'] = array(
+    '#type' => 'select',
+    '#options' => array(0 => t('- No spreadsheets found -')),
     '#prefix' => '<div id="sheetnode-google-spreadsheet-key">',
     '#suffix' => '</div>',
+    '#validated' => TRUE,
   );
-  $form['google']['error'] = array('#type' => 'markup', '#value' => '<p>');
-  $form['google']['submit'] = array(
+  $form['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Import'),
-    '#disabled' => TRUE,
   );
   return $form;
 }
 
-function &_sheetnode_google_import_fetch(&$form, $form_state) {
-  require_once('Zend/Gdata/Spreadsheets.php');
-  require_once('Zend/Gdata/ClientLogin.php');
-
-  $form['google']['error'] = array('#type' => 'markup', '#value' => '');
-  try {
-    $service = Zend_Gdata_Spreadsheets::AUTH_SERVICE_NAME;
-    $client = Zend_Gdata_ClientLogin::getHttpClient($form_state['values']['username'], $form_state['values']['password'], $service);
-    $spreadsheetService = new Zend_Gdata_Spreadsheets($client);
-    $feed = $spreadsheetService->getSpreadsheetFeed();
-  }
-  catch (Exception $e) {
-    $feed = array();
-    $form['google']['error'] = array(
-      '#type' => 'markup',
-      '#value' => rtrim($e->getMessage(), '.') .'.',
-      '#prefix' => '<div class="messages error">',
-      '#suffix' => '</div>',
-    );
-  }
+function _sheetnode_google_import_fetch($form, $form_state) {
   $options = array();
-  foreach ($feed->entries as $entry) {
-    $id = array_pop(explode('/', $entry->id->text));
-    $options[$id] = $entry->title->text;
+  if (!empty($form_state['values'])) {
+    try {
+      $service = Zend_Gdata_Spreadsheets::AUTH_SERVICE_NAME;
+      $client = Zend_Gdata_ClientLogin::getHttpClient($form_state['values']['username'], $form_state['values']['password'], $service);
+      $spreadsheetService = new Zend_Gdata_Spreadsheets($client);
+      $feed = $spreadsheetService->getSpreadsheetFeed();
+      foreach ($feed->entries as $entry) {
+        $id = array_pop(explode('/', $entry->id->text));
+        $options[$id] = $entry->title->text;
+      }
+    }
+    catch (Exception $e) {
+      form_set_error('username', $e->getMessage());
+      $options = array(0 => t('- No spreadsheets found -'));
+    }
   }
-  $form['google']['key'] = array(
-    '#type' => 'select',
-    '#title' => t('Private spreadsheets'),
-    '#options' => $options,
-  );
-  $form['google']['submit'] = array(
-    '#type' => 'submit',
-    '#value' => t('Import'),
-    '#weight' => 99,
-    '#disabled' => empty($options),
-  );
-  return $form['google'];
+  $element = $form['key'];
+  $element['#options'] = $options;
+  $element['#validated'] = TRUE;
+  return $element;
 }
 
 function _sheetnode_google_import_form_validate($form, $form_state) {
-  require_once('Zend/Gdata/Spreadsheets.php');
-  require_once('Zend/Gdata/ClientLogin.php');
-
+  if ($form_state['clicked_button']['#value'] == $form['fetch']['#value']) {
+    return;
+  }
   if (empty($form_state['values']['key'])) {
     form_set_error('key', t('Please enter or select a Google Spreadsheet that you want to import.'));
   }
@@ -87,105 +69,137 @@ function _sheetnode_google_import_form_validate($form, $form_state) {
       $client = Zend_Gdata_ClientLogin::getHttpClient($form_state['values']['username'], $form_state['values']['password'], $service);
     }
     catch (Exception $e) {
-      form_set_error('username', rtrim($e->getMessage(), '.') .'.');
+      form_set_error('username', $e->getMessage());
     }
   }
 }
 
 function _sheetnode_google_import_form_submit($form, &$form_state) {
-  require_once('Zend/Gdata/Spreadsheets.php');
-  require_once('Zend/Gdata/ClientLogin.php');
+  sheetnode_google_batch_import($form_state['values']['username'], $form_state['values']['password'], array($form_state['values']['key']), NULL, '_sheetnode_google_import_callback');
+}
 
-  set_time_limit(0);
+function _sheetnode_google_import_callback($node, $params, &$context) {
+  $spreadsheet = $context['sandbox']['spreadsheet'];
+  if ($context['sandbox']['total'] > 1 && module_exists('book')) {
+    // Create book if none present.
+    if (empty($context['sandbox']['book'])) {
+      global $user;
+      $book = new StdClass;
+      $book->type = 'book';
 
-  global $user;
+      node_object_prepare($book);
+
+      $book->title = $spreadsheet->title->text;
+      if (empty($book->title)) {
+        $book->title = t('Untitled Workbook');
+      }
+      $book->name = $user->name;
+      $book->book['bid'] = 'new';
+      $book->book['plid'] = $book->book['mlid'] = NULL;
+
+      // Let other modules alter the book or do other work.
+      drupal_alter('sheetnode_import', $book, $params, $context);
+
+      $book = node_submit($book);
+      node_save($book);
+      if ($book->nid) {
+        $context['results'][] = $book->nid;
+        $context['sandbox']['book'] = $book;
+      }
+    }
+
+    // Mark the book as parent to the sheetnode.
+    $book = $context['sandbox']['book'];
+    $node->book['bid'] = $book->nid;
+    $node->book['plid'] = $book->book['mlid'];
+    $node->book['module'] = 'book';
+    $node->book['weight'] = $context['sandbox']['current'] - 1;
+  }
+}
+
+function _sheetnode_google_batch_import($username, $password, $key, $callback, $params, &$context) {
   module_load_include('inc', 'node', 'node.pages');
+  set_time_limit(0);
+  global $user;
 
-  try {
-    if (!empty($form_state['values']['username'])) {
-      $service = Zend_Gdata_Spreadsheets::AUTH_SERVICE_NAME;
-      $client = Zend_Gdata_ClientLogin::getHttpClient($form_state['values']['username'], $form_state['values']['password'], $service);
+  if (empty($context['sandbox']['spreadsheetService'])) {
+    // Load workbook and get number of worksheets.
+    try {
+      if (!empty($username)) {
+        $service = Zend_Gdata_Spreadsheets::AUTH_SERVICE_NAME;
+        $client = Zend_Gdata_ClientLogin::getHttpClient($username, $password, $service);
+      }
+      else {
+        $client = NULL;
+      }
+      $spreadsheetService = new Zend_Gdata_Spreadsheets($client);
+      $context['sandbox']['spreadsheetService'] = serialize($spreadsheetService); 
+      $query = new Zend_Gdata_Spreadsheets_DocumentQuery();
+      $query->setSpreadsheetKey($key);
+      $spreadsheet = $spreadsheetService->getSpreadsheetEntry($query);
+      $context['sandbox']['spreadsheet'] = serialize($spreadsheet); 
+      $query = new Zend_Gdata_Spreadsheets_DocumentQuery();
+      $query->setSpreadsheetKey($key);
+      $worksheets = $spreadsheetService->getWorksheetFeed($query);
+      $context['sandbox']['worksheets'] = serialize($worksheets); 
+      $context['sandbox']['total'] = intval($worksheets->getTotalResults()->getText());
+      $context['sandbox']['current'] = 0;
     }
-    else {
-      $client = NULL;
+    catch (Exception $e) {
+      // TODO: Set the error in Batch API.
+      watchdog('sheetnode_google', $e->getMessage(), array(), WATCHDOG_ERROR);
+      return;
     }
-    $spreadsheetService = new Zend_Gdata_Spreadsheets($client);
-    $query = new Zend_Gdata_Spreadsheets_DocumentQuery();
-    $query->setSpreadsheetKey($form_state['values']['key']);
-    $spreadsheet = $spreadsheetService->getSpreadsheetEntry($query);
-    $query = new Zend_Gdata_Spreadsheets_DocumentQuery();
-    $query->setSpreadsheetKey($form_state['values']['key']);
-    $worksheets = $spreadsheetService->getWorksheetFeed($query);
-  }
-  catch (Exception $e) {
-    $msg = 'An error occurred when importing the spreadsheet. The error was:<br />%error';
-    $arg = array('%error' => rtrim($e->getMessage(), '.') .'.');
-    drupal_set_message(t($msg, $arg), 'error');
-    watchdog('sheetnode', $msg, $arg, WATCHDOG_ERROR);
-    return;
-  }
-
-  // Create spreadsheet URL.
-  $key = array_pop(explode('/', $spreadsheet->id->text));
-  $domain = array();
-  $url = 'http://spreadsheets.google.com/';
-  if (preg_match('/@(.*)$/', $form_state['values']['username'], $domain) && $domain[1] != 'gmail.com') {
-    $url .= 'a/'. $domain[1] .'/';
-  }
-  $url .= 'ccc?key='. $key;
-
-  // Create a book if there are more than one sheet.
-  $numsheets = intval($worksheets->getTotalResults()->getText());
-  if ($numsheets > 1 && module_exists('book')) {
-    $node = array('type' => 'book');
-    $form_state_book = array();
-    $form_state_book['values']['title'] = $spreadsheet->title->text;
-    $body = t('Imported from Google Spreadsheet <a href="@url">!sheet</a>.', array('@url' => $url, '!sheet' => $spreadsheet->title->text));
-    $form_state_book['values']['body'] = $body;
-    $form_state_book['values']['name'] = $user->name;
-    $form_state_book['values']['op'] = t('Save');
-    $form_state_book['values']['book']['bid'] = 'new';
-    $form_state_book['values']['book']['plid'] = -1;
-    $form_state_book['values']['book']['weight'] = 0;
-    drupal_execute('book_node_form', $form_state_book, (object)$node);
-    $book = node_load($form_state_book['nid']);
-  }
-
-  // Import all sheets.
-  $s = 0;
-  foreach ($worksheets->entries as $worksheet) {
-    $node = array('type' => 'sheetnode');
-    $form_state_node = array();
-    $form_state_node['values']['title'] = (isset($book) ? '' : $spreadsheet->title->text .' > ') . $worksheet->title->text;
-    $body = isset($book) ? '' : t('Imported from Google Spreadsheet <a href="@url">!sheet</a>.', array('@url' => $url, '!sheet' => $spreadsheet->title->text));
-    $form_state_node['values']['body'] = $body;
-    $form_state_node['values']['name'] = $user->name;
-    $form_state_node['values']['sheetsave'] = _sheetnode_google_import_do($spreadsheetService, $spreadsheet, $worksheet);
-    $form_state_node['values']['op'] = t('Save');
-    if (isset($book)) { // insert inside the book
-      $form_state_node['values']['book']['bid'] = $book->nid;
-      $form_state_node['values']['book']['plid'] = $book->book['mlid'];
-      $form_state_node['values']['book']['weight'] = $s;
-    }
-
-    // Allow other modules to modify the new node's creation parameters.
-    // Hook signature: hook_sheetnode_alter(&$form_state_node, $form, $form_state);
-    drupal_alter('sheetnode', $form_state_node, $form, $form_state);
-
-    drupal_execute('sheetnode_node_form', $form_state_node, (object)$node);
-    $s++;
-  }
-
-  // If more than one sheet, create a book to hold them
-  if (isset($book)) {
-    $form_state['redirect'] = 'node/'. $book->nid;
   }
   else {
-    $form_state['redirect'] = 'node/'. $form_state_node['nid'];
+    // Create sheetnode out of current sheet.
+    $spreadsheetService = unserialize($context['sandbox']['spreadsheetService']);
+    $spreadsheet = unserialize($context['sandbox']['spreadsheet']);
+    $worksheets = unserialize($context['sandbox']['worksheets']);
+    $worksheet = $worksheets->entries[$context['sandbox']['current'] - 1];
+    $node = new StdClass;
+    $node->type = 'sheetnode';
+
+    node_object_prepare($node);
+
+    $node->title = $worksheet->title->text;
+    $node->name = $user->name;
+    $node->sheetnode['value'] = _sheetnode_google_import_do($spreadsheetService, $spreadsheet, $worksheet);
+    $node->sheetnode['template'] = NULL;
+
+    // Let other modules alter the sheetnode or do other work.
+    if (!empty($callback) && function_exists($callback)) {
+      $callback($node, $params, $context);
+    }
+    drupal_alter('sheetnode_import', $node, $params, $context);
+
+    // Save the sheetnode.
+    $node = node_submit($node);
+    node_save($node);
+    if (!empty($node->nid)) {
+      $context['results'][] = $node->nid;
+    }
+  }
+
+  // Update progress information.
+  if ($context['sandbox']['current'] < $context['sandbox']['total']) {
+    $worksheet = $worksheets->entries[$context['sandbox']['current']];
+    $context['message'] = t('Now processing sheet %sheet.', array('%sheet' => $worksheet->title->text));
+    $context['finished'] = $context['sandbox']['current'] / $context['sandbox']['total'];
+    $context['sandbox']['current']++;
+  }
+}
+
+function _sheetnode_google_batch_import_finished($success, $results, $operations) {
+  $batch =& batch_get();
+  if (empty($batch['redirect']) && !empty($results)) {
+    drupal_goto('node/' . $results[0]);
   }
 }
 
 function _sheetnode_google_import_do($spreadsheetService, $spreadsheet, $worksheet) {
+  require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
+
   $sc = array(); // SocialCalc array structure
 
   try {
@@ -221,10 +235,8 @@ function _sheetnode_google_import_do($spreadsheetService, $spreadsheet, $workshe
     }
   }
   catch (Exception $e) {
-    $msg = 'An error occurred when opening the worksheet. The error was:<br />%error';
-    $arg = array('%error' => rtrim($e->getMessage(), '.') .'.');
-    drupal_set_message(t($msg, $arg), 'error');
-    watchdog('sheetnode', $msg, $arg, WATCHDOG_ERROR);
+    // TODO: Set the error in Batch API.
+    watchdog('sheetnode_google', $e->getMessage(), array(), WATCHDOG_ERROR);
     return '';
   }
 
@@ -246,13 +258,17 @@ function _sheetnode_google_import_do($spreadsheetService, $spreadsheet, $workshe
         $formula = preg_replace_callback('/R(?:(\[)?(-?\d+)\]?)?C(?:(\[)?(-?\d+)\]?)?/', '_sheetnode_google_import_formula_replace_coords', $value);
         $formula = str_replace(';', ',', $formula);
         $c['formula'] = substr($formula, 1);
-        if ($numeric) _sheetnode_google_import_infer_valueformat($sc, $c, $numeric, trim($content));
-      } else if ($numeric) { // number
+        if ($numeric) {
+          _sheetnode_google_import_infer_valueformat($sc, $c, $numeric, trim($content));
+        }
+      } 
+      else if ($numeric) { // number
         $c['datatype'] = 'v';
         $c['valuetype'] = 'n';
         $c['datavalue'] = $numeric;
         _sheetnode_google_import_infer_valueformat($sc, $c, $numeric, trim($value));
-      } else { // text, probably :-)
+      } 
+      else { // text, probably :-)
         $html = _filter_url($value, NULL);
         if ($html != $value) {
           $c['valuetype'] = 'th';
@@ -267,10 +283,8 @@ function _sheetnode_google_import_do($spreadsheetService, $spreadsheet, $workshe
       $sc['cells'][socialcalc_cr_to_coord($c['pos'][0],$c['pos'][1])] = $c;
     }
     catch (Exception $e) {
-      $msg = 'An error occurred when importing cell %cell. The error was:<br />%error';
-      $arg = array('%cell' => $cell->title->text, '%error' => rtrim($e->getMessage(), '.') .'.');
-      drupal_set_message(t($msg, $arg), 'warning');
-      watchdog('sheetnode', $msg, $arg, WATCHDOG_WARNING);
+      // TODO: Set the error in Batch API.
+      watchdog('sheetnode_google', $e->getMessage(), array(), WATCHDOG_WARNING);
     }
   }
 
