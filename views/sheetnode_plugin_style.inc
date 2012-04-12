@@ -407,6 +407,8 @@ class sheetnode_plugin_style extends views_plugin_style {
       $path . '/socialcalc/socialcalc.css',
       $path . '/sheetnode.css',
     );
+
+    module_invoke_all('sheetnode_plugins', $value, $save_element, $context);
   }
 
   function render() {

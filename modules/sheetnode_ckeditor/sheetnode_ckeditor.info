@@ -1,0 +1,5 @@
+name = Sheetnode CKEditor
+description = Adds CKEditor button to Sheetnode toolbar.
+package = Sheetnode
+dependencies[] = sheetnode
+core = 7.x
