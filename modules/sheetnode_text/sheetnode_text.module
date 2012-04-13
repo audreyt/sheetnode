@@ -57,7 +57,7 @@ function sheetnode_text_import_form_submit($form, &$form_state) {
 
   $node->title = $title;
   $node->name = $user->name;
-  $node->sheetnode['value'] = sheetnode_text_import($text, $options);
+  $node->sheetnode['value'] = $sc;
   $node->sheetnode['template'] = NULL;
 
   $context = array('text' => $text, 'options' => $options);
