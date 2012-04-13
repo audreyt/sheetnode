@@ -48,6 +48,7 @@ function sheetnode_text_import_form_submit($form, &$form_state) {
     'ignore_spans' => variable_get('sheetnode_text_ignore_spans', FALSE),
     'process_dividers' => variable_get('sheetnode_text_process_dividers', TRUE),
   );
+  $sc = sheetnode_text_import($text, $options);
   
   $node = new StdClass;
   $node->type = 'sheetnode';
@@ -59,7 +60,7 @@ function sheetnode_text_import_form_submit($form, &$form_state) {
   $node->sheetnode['value'] = sheetnode_text_import($text, $options);
   $node->sheetnode['template'] = NULL;
 
-  $context = array();
+  $context = array('text' => $text, 'options' => $options);
   $params = array();
   drupal_alter('sheetnode_import', $node, $params, $context);
 
