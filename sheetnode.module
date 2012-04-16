@@ -254,9 +254,7 @@ function sheetnode_update($node) {
   }
   else if (!empty($node->revision)) {
     // reverting a revision
-    dsm($node->old_vid);
     $value = db_query("SELECT value FROM {sheetnode} WHERE vid = :old", array(':old' => $node->old_vid))->fetchField();
-    dsm($value);
     db_insert('sheetnode')
       ->fields(array(
         'vid' => $node->vid,
