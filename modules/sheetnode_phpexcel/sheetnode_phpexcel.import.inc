@@ -75,6 +75,7 @@ function _sheetnode_phpexcel_import_callback($node, $params, &$context) {
         $book->title = !empty($context['sandbox']['filename']) ? $context['sandbox']['filename'] : t('Untitled Workbook');
       }
       $book->name = $user->name;
+      $book->language = LANGUAGE_NONE;
       $book->book['bid'] = 'new';
       $book->book['plid'] = $book->book['mlid'] = NULL;
 
@@ -122,6 +123,7 @@ function _sheetnode_phpexcel_batch_import_file($filename, $filepath, $callback, 
 
     $node->title = $sheet->getTitle();
     $node->name = $user->name;
+    $node->language = LANGUAGE_NONE;
     $node->sheetnode['value'] = _sheetnode_phpexcel_import_do($workbook, $sheet);
     $node->sheetnode['template'] = NULL;
 

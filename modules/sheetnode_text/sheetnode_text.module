@@ -57,6 +57,7 @@ function sheetnode_text_import_form_submit($form, &$form_state) {
 
   $node->title = $title;
   $node->name = $user->name;
+  $node->language = LANGUAGE_NONE;
   $node->sheetnode['value'] = $sc;
   $node->sheetnode['template'] = NULL;
 

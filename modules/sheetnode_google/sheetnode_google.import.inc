@@ -94,6 +94,7 @@ function _sheetnode_google_import_callback($node, $params, &$context) {
         $book->title = t('Untitled Workbook');
       }
       $book->name = $user->name;
+      $book->language = LANGUAGE_NONE;
       $book->book['bid'] = 'new';
       $book->book['plid'] = $book->book['mlid'] = NULL;
 
@@ -164,6 +165,7 @@ function _sheetnode_google_batch_import($username, $password, $key, $callback, $
 
     $node->title = $worksheet->title->text;
     $node->name = $user->name;
+    $node->language = LANGUAGE_NONE;
     $node->sheetnode['value'] = _sheetnode_google_import_do($spreadsheetService, $spreadsheet, $worksheet);
     $node->sheetnode['template'] = NULL;
 

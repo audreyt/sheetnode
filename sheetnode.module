@@ -535,6 +535,7 @@ function sheetnode_import_template_submit($form, &$form_state) {
 
   $node->title = $template->name;
   $node->name = $user->name;
+  $node->language = LANGUAGE_NONE;
   $node->sheetnode['value'] = $template->value;
   $node->sheetnode['template'] = NULL;
 
