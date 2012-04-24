@@ -129,18 +129,21 @@ Drupal.sheetnode.prototype.focusSetup = function() {
 
 Drupal.sheetnode.prototype.callbackSetup = function() {
   var self = this;
-  if (this.settings.saveElement) {
-    this.spreadsheet.editor.StatusCallback.sheetnode = {
-      func: function(editor, status, arg, params) {
-        if (status == 'doneposcalc') {
-          window.setTimeout(function() {
-            $('#'+self.settings.saveElement, self.$form).val(self.spreadsheet.CreateSpreadsheetSave());
-          }, 0);
+  this.spreadsheet.editor.StatusCallback.sheetnode = {
+    func: function(editor, status, arg, params) {
+      if (status == 'calcfinished') {
+        if (!self.settings.saveElement && self.settings.viewMode == Drupal.sheetnode.viewModes.htmlTable) {
+          self.$container.html(SocialCalc.SpreadsheetViewerCreateSheetHTML(self.spreadsheet));
         }
-      },
-      params: {}
-    };
-  }
+      }
+      if (status == 'doneposcalc' && self.settings.saveElement) {
+        window.setTimeout(function() {
+          $('#'+self.settings.saveElement, self.$form).val(self.spreadsheet.CreateSpreadsheetSave());
+        }, 0);
+      }
+    },
+    params: {}
+  };
 }
 
 Drupal.sheetnode.viewModes = {
@@ -186,17 +189,16 @@ Drupal.sheetnode.prototype.start = function() {
       this.spreadsheet.ParseSheetSave(this.settings.value.substring(parts.sheet.start, parts.sheet.end));
     }
   }
-  if (showEditor) {
-    this.spreadsheet.InitializeSpreadsheetControl(this.settings.containerElement, 700, this.$container.width());
-  }
-  else {
-    this.spreadsheet.InitializeSpreadsheetViewer(this.settings.containerElement, 700, this.$container.width());
-  }
-  if (parts && parts.edit) {
-    this.spreadsheet.editor.LoadEditorSettings(this.settings.value.substring(parts.edit.start, parts.edit.end));
-  }
-  if (!this.settings.saveElement && this.settings.viewMode == Drupal.sheetnode.viewModes.htmlTable) {
-    this.$container.html(SocialCalc.SpreadsheetViewerCreateSheetHTML(this.spreadsheet));
+  if (self.settings.saveElement || self.settings.viewMode != Drupal.sheetnode.viewModes.htmlTable) {
+    if (showEditor) {
+      this.spreadsheet.InitializeSpreadsheetControl(this.settings.containerElement, 700, this.$container.width());
+    }
+    else {
+      this.spreadsheet.InitializeSpreadsheetViewer(this.settings.containerElement, 700, this.$container.width());
+    }
+    if (parts && parts.edit) {
+      this.spreadsheet.editor.LoadEditorSettings(this.settings.value.substring(parts.edit.start, parts.edit.end));
+    }
   }
 
   // Call our setup functions.
