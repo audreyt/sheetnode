@@ -163,17 +163,22 @@ class sheetnode_plugin_style extends views_plugin_style {
               );
             }
             else if ($matches[0][$i][0] == '$') {
-              $replace = $result->{$this->view->field[$field_name]->field_alias};
+              $replace = $this->view->field[$field_name]->theme($result);
             }
-            if (!is_null($replace)) {
+            if (!empty($replace)) {
               $expression = str_replace($matches[0][$i], $replace, $expression);
             }
+            else {
+              $expression = NULL;
+            }
           }
-          $newcell['formula'] = $expression;
-          $newcell['datatype'] = 'f';
-          $newcell['valuetype'] = 'n';
-          $newcell['datavalue'] = 0;
-          $newcells[socialcalc_cr_to_coord($pos[0], $pos[1])] = $newcell;
+          if (!empty($expression)) {
+            $newcell['formula'] = $expression;
+            $newcell['datatype'] = 'f';
+            $newcell['valuetype'] = 'n';
+            $newcell['datavalue'] = 0;
+            $newcells[socialcalc_cr_to_coord($pos[0], $pos[1])] = $newcell;
+          }
           $pos[$normal]++;
         }
         $fields[] = array(
@@ -206,15 +211,20 @@ class sheetnode_plugin_style extends views_plugin_style {
             $field = $fields[$field_name];
             $replace = socialcalc_cr_to_coord($field['cell']['pos'][0], $field['cell']['pos'][1]) .':'. socialcalc_cr_to_coord($field['endpos'][0], $field['endpos'][1]);
           }
-          if ($replace) {
+          if (!empty($replace)) {
             $expression = str_replace($matches[0][$i], $replace, $expression);
           }
+          else {
+            $expression = NULL;
+          }
         }
-        $newcell['formula'] = $expression;
-        $newcell['datatype'] = 'f';
-        $newcell['valuetype'] = 'n';
-        $newcell['datavalue'] = 0;
-        $socialcalc['sheet']['cells'][$formula['coord']] = $newcell;
+        if (!empty($expression)) {
+          $newcell['formula'] = $expression;
+          $newcell['datatype'] = 'f';
+          $newcell['valuetype'] = 'n';
+          $newcell['datavalue'] = 0;
+          $socialcalc['sheet']['cells'][$formula['coord']] = $newcell;
+        }
       }
 
       // Adjust positions of all cells based on expanded values.
