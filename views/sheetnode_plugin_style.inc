@@ -163,7 +163,17 @@ class sheetnode_plugin_style extends views_plugin_style {
               );
             }
             else if ($matches[0][$i][0] == '$') {
-              $replace = $this->view->field[$field_name]->theme($result);
+              $field = $this->view->field[$field_name];
+              $replace = $field->get_value($result);
+              if (!is_scalar($replace) && isset($field->field_info) && isset($result->_field_data[$field->field_alias])) {
+                $field_data = $result->_field_data[$field->field_alias];
+                $output = '';
+                foreach ($replace as $item) {
+                  $element = field_view_value($field_data['entity_type'], $field_data['entity'], $field_name, $item);
+                  $output .= drupal_render($element);
+                }
+                $replace = $output;
+              }
             }
             if (!empty($replace)) {
               $expression = str_replace($matches[0][$i], $replace, $expression);
