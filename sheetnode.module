@@ -289,7 +289,7 @@ function sheetnode_node_update_index($node) {
     $output .= _sheetnode_update_index($node->sheetnode['value']);
   }
   foreach (sheetnode_get_sheetfields($node->type) as $field_name => $field) {
-    foreach ($node->{$field_name}[$node->language] as $item) {
+    foreach ($node->{$field_name}[LANGUAGE_NONE] as $item) {
       $output .= _sheetnode_update_index($item['value']);
     }
   }
@@ -410,7 +410,7 @@ function sheetnode_tokens_alter(array &$replacements, array $context) {
     foreach (sheetnode_get_sheetfields($node->type) as $field_name => $field_info) {
       if ($sheet_tokens = token_find_with_prefix($tokens, $field_name)) {
         // TODO: how to handle multi-valued fields here?
-        $replacements += token_generate('sheet', $sheet_tokens, array('sheet' => $node->{$field_name}[$node->language][0]['value']), $context['options']);
+        $replacements += token_generate('sheet', $sheet_tokens, array('sheet' => $node->{$field_name}[LANGUAGE_NONE][0]['value']), $context['options']);
       }
     }
   }
@@ -649,6 +649,7 @@ function sheetnode_field_info() {
       'description' => t('Store a spreadsheet.'),
       'default_widget' => 'sheetfield_spreadsheet',
       'default_formatter' => 'sheetfield_default',
+      'translatable' => FALSE,
     ),
   );
 }
@@ -661,10 +662,10 @@ function sheetnode_field_info() {
 function sheetnode_node_validate($node, $form, &$form_state) {
   $errors = form_get_errors();
   if (!empty($errors)) foreach ($form_state['field'] as $field_name => $field) {
-    if ($field[$node->language]['field']['type'] == 'sheetfield' && !empty($form_state['input'][$field_name])) {
-      foreach ($form_state['input'][$field_name][$node->language] as $delta => $item) {
+    if ($field[LANGUAGE_NONE]['field']['type'] == 'sheetfield' && !empty($form_state['input'][$field_name])) {
+      foreach ($form_state['input'][$field_name][LANGUAGE_NONE] as $delta => $item) {
         $field_key = 'value';
-        $element_id = drupal_clean_css_identifier('edit-' . $field_name . '-' . $node->language . '-' . $delta);
+        $element_id = drupal_clean_css_identifier('edit-' . $field_name . '-' . LANGUAGE_NONE . '-' . $delta);
         $output = _sheetnode_inject(
           drupal_clean_css_identifier('sheetfield-' . $element_id),
           $item['value'],
@@ -958,9 +959,9 @@ function sheetnode_find_sheet($sheetname) {
            0 == strcasecmp($target_field, $field_name) || 
            0 == strcasecmp($target_field, $field_info['instance']['label'])
           ) &&
-          !empty($node->{$field_name}[$node->language][$target_delta])
+          !empty($node->{$field_name}[LANGUAGE_NONE][$target_delta])
       ) {
-        $value = $node->{$field_name}[$node->language][$target_delta]['value'];
+        $value = $node->{$field_name}[LANGUAGE_NONE][$target_delta]['value'];
         $title = trim(sprintf("%s %s %s", 
           $node->title, 
           $field_info['instance']['label'], 

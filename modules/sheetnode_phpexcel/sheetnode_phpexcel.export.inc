@@ -13,7 +13,7 @@ function _sheetnode_phpexcel_export($format, $node) {
   }
   $sheetfields = sheetnode_get_sheetfields($node->type);
   if (!empty($sheetfields)) foreach ($sheetfields as $sheetfield) {
-    foreach ($node->{$sheetfield['field_name']}[$node->language] as $delta => $item) {
+    foreach ($node->{$sheetfield['field_name']}[LANGUAGE_NONE] as $delta => $item) {
       $sheets[$sheetfield['instance']['label'] .' '. ($delta+1)] = socialcalc_parse($item['value']);
     }
   }
