@@ -96,6 +96,7 @@ function sheetnode_view($node, $view_mode) {
   if ($view_mode == 'full') {
     $output = _sheetnode_inject(
       drupal_clean_css_identifier('sheetnode-' . $node->nid), 
+      'sheetnode',
       $node->sheetnode['value'], 
       FALSE, 
       array('entity-name' => 'node', 'oid' => $node->nid)
@@ -156,6 +157,7 @@ function sheetnode_form($node, &$form_state) {
   }
   $output = _sheetnode_inject(
     drupal_clean_css_identifier('sheetnode-' . (empty($node->nid) ? 'new' : $node->nid)), 
+    'sheetnode',
     $value, 
     drupal_clean_css_identifier('edit-sheetnode-value'), 
     array('entity-name' => 'node', 'oid' => $nid)
@@ -188,6 +190,7 @@ function sheetnode_validate($node, $form, &$form_state) {
   if (!empty($errors)) {
     _sheetnode_inject(
       drupal_clean_css_identifier('sheetnode-' . (empty($form['nid']['#value']) ? 'new' : $form['nid']['#value'])), 
+      'sheetnode',
       $form['sheetnode']['value']['#value'], 
       drupal_clean_css_identifier('edit-sheetnode-value'), 
       array('entity-name' => 'node', 'oid' => $form['nid']['#value'])
@@ -198,7 +201,7 @@ function sheetnode_validate($node, $form, &$form_state) {
 /**
  * Helper function to inject Sheetnode JavaScript.
  */
-function _sheetnode_inject($sheet_id, $value, $save_element, $context) {
+function _sheetnode_inject($sheet_id, $sheet_name, $value, $save_element, $context) {
   $path = drupal_get_path('module', 'sheetnode');
   drupal_add_js($path . '/socialcalc/socialcalcconstants.js', array('weight' => 1));
   drupal_add_js($path . '/socialcalc/socialcalc-3.js', array('weight' => 2));
@@ -217,6 +220,7 @@ function _sheetnode_inject($sheet_id, $value, $save_element, $context) {
   static $sheets = NULL;
   if (!isset($sheets[$sheet_id])) {
     drupal_add_js(array('sheetnode' => array($sheet_id => array(
+      'name' => $sheet_name,
       'value' => $value, 
       'imagePrefix' => base_path() . $path . '/socialcalc/images/sc-',
       'containerElement' => $sheet_id,
@@ -668,6 +672,7 @@ function sheetnode_node_validate($node, $form, &$form_state) {
         $element_id = drupal_clean_css_identifier('edit-' . $field_name . '-' . LANGUAGE_NONE . '-' . $delta);
         $output = _sheetnode_inject(
           drupal_clean_css_identifier('sheetfield-' . $element_id),
+          $field_name . '/' . $delta,
           $item['value'],
           $element_id,
           array('entity-name' => 'node', 'oid' => @$node->nid)
@@ -766,6 +771,7 @@ function sheetnode_field_formatter_view($entity_type, $entity, $field, $instance
         $value = $item['value'];
         $output = _sheetnode_inject(
           drupal_clean_css_identifier('sheetfield-' . $field['field_name'] . '-' . $langcode . '-' . $delta),
+          $field['field_name'] . '/' . $delta,
           $value, 
           FALSE, 
           isset($entity) && $entity == 'node' ? array('entity-name' => $entity_type, 'oid' => @$entity->nid) : NULL
@@ -824,6 +830,7 @@ function sheetnode_field_widget_form(&$form, &$form_state, $field, $instance, $l
       $element_id = drupal_clean_css_identifier('edit-' . $element['#field_name'] . '-' . $langcode . '-' . $delta);
       $output = _sheetnode_inject(
         drupal_clean_css_identifier('sheetfield-' . $element_id),
+        $element['#field_name'] . '/' . $delta,
         $value,
         $element_id,
         isset($form['#node']) ? array('entity-name' => 'node', 'oid' => @$form['#node']->nid) : NULL
@@ -904,6 +911,7 @@ function _sheetnode_spreadsheet_process($element, &$form_state, $form) {
 
   $output = _sheetnode_inject(
     drupal_clean_css_identifier('sheetfield-' . $element['#id']), 
+    $element['#name'],
     $value, 
     drupal_clean_css_identifier($element['#id'] . '-' . $field_key), 
     NULL

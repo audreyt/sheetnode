@@ -106,7 +106,32 @@ Drupal.sheetnode.prototype.functionsSetup = function() {
 }
 
 Drupal.sheetnode.prototype.loadsheetSetup = function() {
+  var self = this;
   SocialCalc.RecalcInfo.LoadSheet = function(sheetname) {
+    var found = false;
+
+    // Avoid returning this sheet.
+    if (self.settings.name == sheetname) {
+      // TODO: Should really return true and inform SocialCalc that this is the same sheet.
+      // However SocialCalc does not support aliases currently.
+      return false;
+    }
+
+    // First examine on-screen spreadsheets.
+    $.each(Drupal.sheetnode.sheetviews, function(index, sheetnode) {
+      if (sheetnode.settings.name == sheetname) {
+        var data = sheetnode.spreadsheet.CreateSpreadsheetSave();
+        var parts = sheetnode.spreadsheet.DecodeSpreadsheetSave(data);
+        if (parts.sheet) {
+          data = data.substring(parts.sheet.start, parts.sheet.end);
+          SocialCalc.RecalcLoadedSheet(sheetname, data, false, true);
+          found = true;
+        }
+      }
+    });
+    if (found) return true;
+
+    // Next call backend to find the reference.
     data = $.ajax({
       type: 'POST',
       url: Drupal.settings.basePath+'sheetnode/load',
@@ -116,8 +141,10 @@ Drupal.sheetnode.prototype.loadsheetSetup = function() {
     }).responseText;
     if (data !== null) {
       SocialCalc.RecalcLoadedSheet(sheetname, data, true);
+      found = true;
     }
-    return data;
+
+    return found;
   }
 }
 
