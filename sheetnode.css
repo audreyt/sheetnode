@@ -52,6 +52,3 @@
   background: inherit;
 }
 
-/* Fix fieldset relative offset problem: http://drupal.org/node/735674 */
-html.js fieldset.collapsible { position: static; }
-
