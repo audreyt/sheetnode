@@ -165,7 +165,12 @@ class sheetnode_plugin_style extends views_plugin_style {
             else if ($matches[0][$i][0] == '$') {
               $field = $this->view->field[$field_name];
               $replace = $field->get_value($result);
-              if (!is_scalar($replace) && isset($field->field_info) && isset($result->_field_data[$field->field_alias])) {
+              // Special case: empty array == NULL.
+              if (is_array($replace) && empty($replace)) {
+                $replace = NULL;
+              }
+              // Otherwise, if array of values, render them.
+              else if (!is_scalar($replace) && isset($field->field_info) && isset($result->_field_data[$field->field_alias])) {
                 $field_data = $result->_field_data[$field->field_alias];
                 $output = '';
                 foreach ($replace as $item) {
@@ -175,14 +180,14 @@ class sheetnode_plugin_style extends views_plugin_style {
                 $replace = $output;
               }
             }
-            if (!empty($replace)) {
+            if (!is_null($replace)) {
               $expression = str_replace($matches[0][$i], $replace, $expression);
             }
             else {
               $expression = NULL;
             }
           }
-          if (!empty($expression)) {
+          if (!is_null($expression)) {
             $newcell['formula'] = $expression;
             $newcell['datatype'] = 'f';
             $newcell['valuetype'] = 'n';
@@ -221,14 +226,14 @@ class sheetnode_plugin_style extends views_plugin_style {
             $field = $fields[$field_name];
             $replace = socialcalc_cr_to_coord($field['cell']['pos'][0], $field['cell']['pos'][1]) .':'. socialcalc_cr_to_coord($field['endpos'][0], $field['endpos'][1]);
           }
-          if (!empty($replace)) {
+          if (!is_null($replace)) {
             $expression = str_replace($matches[0][$i], $replace, $expression);
           }
           else {
             $expression = NULL;
           }
         }
-        if (!empty($expression)) {
+        if (!is_null($expression)) {
           $newcell['formula'] = $expression;
           $newcell['datatype'] = 'f';
           $newcell['valuetype'] = 'n';
