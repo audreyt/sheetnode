@@ -149,7 +149,7 @@ Drupal.sheetnode.prototype.loadsheetSetup = function() {
 }
 
 Drupal.sheetnode.prototype.focusSetup = function() {
-  $('.form-text,.form-textarea,.form-select', this.context).not('.socialcalc-input').focus(function(e) {
+  $(document.body).delegate('.form-text:not(.socialcalc-input),.form-textarea:not(.socialcalc-input),.form-select:not(.socialcalc-input)', 'focus', function(e) {
     SocialCalc.CmdGotFocus(this);
   });
 }
