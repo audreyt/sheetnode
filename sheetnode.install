@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Implementation of hook_schema().
+ * Implements hook_schema().
  */
 function sheetnode_schema() {
   return sheetnode_schema_7001();
@@ -93,10 +93,10 @@ function sheetnode_schema_7001() {
 }
 
 /**
- * Implementation of hook_field_schema().
+ * Implements hook_field_schema().
  */
 function sheetnode_field_schema($field) {
-  return sheetnode_field_schema_7001($field);
+  return sheetnode_field_schema_7002($field);
 }
 
 function sheetnode_field_schema_7001($field) {
@@ -113,5 +113,61 @@ function sheetnode_field_schema_7001($field) {
     'columns' => $columns,
     'indexes' => $indexes,
   );
+}
+
+function sheetnode_field_schema_7002($field) {
+  $columns = array(
+    'value' => array(
+      'description' => 'The worksheet content.',
+      'type' => 'text',
+      'size' => 'big',
+      'not null' => TRUE,
+    ),
+    'name' => array(
+      'description' => 'The worksheet title.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => FALSE,
+    ),
+  );
+  $indexes = array(
+    'name' => array('name'),
+  );
+  return array(
+    'columns' => $columns,
+    'indexes' => $indexes,
+  );
+}
+
+/**
+ * Implements hook_update_N(). 
+ * Add sheetfield name.
+ */
+function sheetnode_update_7002() {
+  $schema = sheetnode_field_schema_7002(NULL);
+
+  // Get the list of fields of type 'sheetfield'.
+  $fields = array();
+  foreach (field_info_fields() as $field_name => $field) {
+    // Update the field configuration.
+    if ($field['type'] == 'sheetfield') {
+      field_update_field($field);
+
+      if ($field['storage']['type'] == 'field_sql_storage') {
+        foreach ($field['storage']['details']['sql'] as $table_info) {
+          foreach ($table_info as $table => $columns) {
+            foreach ($columns as $column_name => $real_name) {
+              if ($real_name == 'name') {
+                if (!db_field_exists($table, $column_name)) {
+                  db_add_field($table, $column_name, $schema[$real_name]);
+                  db_add_index($table, $real_name, array($column_name));
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 }
 

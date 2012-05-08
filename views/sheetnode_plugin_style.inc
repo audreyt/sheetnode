@@ -97,7 +97,9 @@ class sheetnode_plugin_style extends views_plugin_style {
         unset($socialcalc['sheet']['cells'][$field['coord']]);
         $newcell = $field['cell'];
         $pos = $maxpos = $newcell['pos'];
-        foreach ($this->view->result as $result) {
+        $this->view->row_index = 0;
+        foreach ($this->view->result as $j => $result) {
+          $this->view->row_index = $j;
           $value = $field['info']->theme($result);
           if (is_array($value)) {
             // Expand an array of values into consecutive cells.
@@ -135,7 +137,9 @@ class sheetnode_plugin_style extends views_plugin_style {
         $pos = $newcell['pos'];
         $matches = array();
         $count = preg_match_all('/@(.*?)@|\$(.*?)\$/', $fe['expression'], $matches);
+        $this->view->row_index = 0;
         foreach ($this->view->result as $j => $result) {
+          $this->view->row_index = $j;
           $expression = $fe['expression'];
           $newcell['pos'] = $pos;
           for ($i=0; $i<$count; $i++) {
@@ -337,7 +341,9 @@ class sheetnode_plugin_style extends views_plugin_style {
         $pos[$tangent]++;
       }
       $pos[$normal] = 2;
-      foreach ($this->view->result as $result) {
+      $this->view->row_index = 0;
+      foreach ($this->view->result as $j => $result) {
+        $this->view->row_index = $j;
         $pos[$tangent] = 1;
         foreach ($this->view->field as $field => $info) {
           if ($info->options['exclude']) continue;
@@ -395,6 +401,7 @@ class sheetnode_plugin_style extends views_plugin_style {
         'audit' => socialcalc_default_audit($sheet),
       );
     }
+    unset($this->view->row_index);
     return $socialcalc;
   }
 
