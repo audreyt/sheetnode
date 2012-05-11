@@ -410,7 +410,7 @@ class sheetnode_plugin_style extends views_plugin_style {
     $context = array('entity-name' => 'view', 'oid' => $this->view->name);
     $sheet_id = drupal_clean_css_identifier('sheetview-' . $this->view->name . (empty($this->view->live_preview) ? '' : '-preview'));
     $setting = array('sheetnode' => array($sheet_id => array(
-      'name' => $this->view->name,
+      'aliases' => array($this->view->name),
       'value' => $value,
       'imagePrefix' => base_path() . $path . '/socialcalc/images/sc-',
       'containerElement' => $sheet_id,

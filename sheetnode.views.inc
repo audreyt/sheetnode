@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Implementation of hook_views_plugins().
+ * Implements hook_views_plugins().
  */
 function sheetnode_views_plugins() {
   $path = drupal_get_path('module', 'sheetnode');
@@ -44,7 +44,7 @@ function sheetnode_views_plugins() {
 }
 
 /**
- * Implementation of hook_views_handlers().
+ * Implements hook_views_handlers().
  */
 function sheetnode_views_handlers() {
   return array(
@@ -69,7 +69,7 @@ function sheetnode_views_handlers() {
 }
 
 /**
- * Implementation of hook_views_data().
+ * Implements hook_views_data().
  */
 function sheetnode_views_data() {
   // Basic table information.
@@ -128,7 +128,7 @@ function sheetnode_views_data() {
 }
 
 /**
- * Implementation of hook_views_data_alter().
+ * Implements hook_views_data_alter().
  */
 function sheetnode_views_data_alter(&$data) {
   $fieldapi_info = field_info_fields();

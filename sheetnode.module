@@ -201,7 +201,7 @@ function sheetnode_validate($node, $form, &$form_state) {
 /**
  * Helper function to inject Sheetnode JavaScript.
  */
-function _sheetnode_inject($sheet_id, $sheet_name, $value, $save_element, $context) {
+function _sheetnode_inject($sheet_id, $sheet_aliases, $value, $save_element, $context) {
   $path = drupal_get_path('module', 'sheetnode');
   drupal_add_js($path . '/socialcalc/socialcalcconstants.js', array('weight' => 1));
   drupal_add_js($path . '/socialcalc/socialcalc-3.js', array('weight' => 2));
@@ -215,12 +215,16 @@ function _sheetnode_inject($sheet_id, $sheet_name, $value, $save_element, $conte
   drupal_add_css($path . '/socialcalc/socialcalc.css');
   drupal_add_css($path . '/sheetnode.css');
 
+  // Allow other modules to add their own JS/CSS.
   module_invoke_all('sheetnode_plugins', $value, $save_element, $context);
+
+  // Lower-case sheet aliases.
+  $sheet_aliases = array_map('strtolower', (array)$sheet_aliases);
 
   static $sheets = NULL;
   if (!isset($sheets[$sheet_id])) {
     drupal_add_js(array('sheetnode' => array($sheet_id => array(
-      'name' => $sheet_name,
+      'aliases' => $sheet_aliases,
       'value' => $value, 
       'imagePrefix' => base_path() . $path . '/socialcalc/images/sc-',
       'containerElement' => $sheet_id,
@@ -668,11 +672,10 @@ function sheetnode_node_validate($node, $form, &$form_state) {
   if (!empty($errors)) foreach ($form_state['field'] as $field_name => $field) {
     if ($field[LANGUAGE_NONE]['field']['type'] == 'sheetfield' && !empty($form_state['input'][$field_name])) {
       foreach ($form_state['input'][$field_name][LANGUAGE_NONE] as $delta => $item) {
-        $field_key = 'value';
         $element_id = drupal_clean_css_identifier('edit-' . $field_name . '-' . LANGUAGE_NONE . '-' . $delta);
         $output = _sheetnode_inject(
           drupal_clean_css_identifier('sheetfield-' . $element_id),
-          $field_name . '/' . $delta,
+          _sheetnode_sheetfield_aliases($field_name, $field[LANGUAGE_NONE]['instance']['label'], $item, $delta),
           $item['value'],
           $element_id,
           array('entity-name' => 'node', 'oid' => @$node->nid)
@@ -768,11 +771,14 @@ function sheetnode_field_formatter_view($entity_type, $entity, $field, $instance
   switch ($display['type']) {
     case 'sheetfield_default':
       foreach ($items as $delta => $item) {
-        $value = $item['value'];
-        $output = _sheetnode_inject(
+        $output = '';
+        if (!empty($item['name'])) {
+          $output .= '<div class="sheetfield-title">' . $item['name'] . '</div>';
+        }
+        $output .= _sheetnode_inject(
           drupal_clean_css_identifier('sheetfield-' . $field['field_name'] . '-' . $langcode . '-' . $delta),
-          $field['field_name'] . '/' . $delta,
-          $value, 
+          _sheetnode_sheetfield_aliases($field['field_name'], $instance['label'], $item, $delta),
+          $item['value'],
           FALSE, 
           isset($entity) && $entity == 'node' ? array('entity-name' => $entity_type, 'oid' => @$entity->nid) : NULL
         );
@@ -814,28 +820,25 @@ function sheetnode_field_widget_info() {
  * Implements hook_field_widget_form().
  */
 function sheetnode_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
-  $value = 
-    isset($form_state['input'][$element['#field_name']][$langcode][$delta]['value']) ? 
-      $form_state['input'][$element['#field_name']][$langcode][$delta]['value'] : (
-    isset($items[$delta]['value']) ? 
-      $items[$delta]['value'] : (
-    NULL));
-
   $widget = $element;
   $widget['#delta'] = $delta;
-
+  $defaults = isset($items[$delta]) ? $items[$delta] : array('name' => '', 'value' => '');
   switch ($instance['widget']['type']) {
     case 'sheetfield_spreadsheet':
-      $field_key = $element['#columns'][0];
       $element_id = drupal_clean_css_identifier('edit-' . $element['#field_name'] . '-' . $langcode . '-' . $delta);
       $output = _sheetnode_inject(
         drupal_clean_css_identifier('sheetfield-' . $element_id),
-        $element['#field_name'] . '/' . $delta,
-        $value,
+        _sheetnode_sheetfield_aliases($element['#field_name'], $instance['label'], $defaults, $delta),
+        $defaults['value'],
         $element_id,
         isset($form['#node']) ? array('entity-name' => 'node', 'oid' => @$form['#node']->nid) : NULL
       );
-      $widget[$field_key] = array('#type' => 'hidden', '#attributes' => array('id' => $element_id), '#prefix' => $output);
+      $widget['name'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Title'),
+        '#default_value' => @$defaults['name'],
+      );
+      $widget['value'] = array('#type' => 'hidden', '#attributes' => array('id' => $element_id), '#prefix' => $output);
       break;
   }
   
@@ -896,30 +899,18 @@ function sheetnode_element_info() {
  * Process function for spreadsheet element.
  */
 function _sheetnode_spreadsheet_process($element, &$form_state, $form) {
-  $field_key = 'value';
-  $value = 
-    isset($form_state['input'][$element['#name']][$field_key]) ? 
-      $form_state['input'][$element['#name']][$field_key] : (
-    is_array($element['#value']) && isset($element['#value'][$field_key]) ? 
-      $element['#value'][$field_key] : (
-    isset($element['#value']) ? 
-      $element['#value'] : (
-    is_array($element['#default_value']) && isset($element['#default_value'][$field_key]) ? 
-      $element['#default_value'][$field_key] : ( 
-    isset($element['#default_value']) ? $element['#default_value'] : (
-    NULL)))));
-
+  $value = $element['#value'];
   $output = _sheetnode_inject(
     drupal_clean_css_identifier('sheetfield-' . $element['#id']), 
-    $element['#name'],
-    $value, 
-    drupal_clean_css_identifier($element['#id'] . '-' . $field_key), 
+    array($element['#name'], $element['#title']),
+    $value,
+    drupal_clean_css_identifier($element['#id']), 
     NULL
   );
   $element['#tree'] = TRUE;
-  $element[$field_key] = array(
+  $element['value'] = array(
     '#type' => 'hidden', 
-    '#attributes' => array('id' => drupal_clean_css_identifier($element['#id'] . '-' . $field_key)), 
+    '#attributes' => array('id' => drupal_clean_css_identifier($element['#id'])), 
     '#prefix' => $output,
   );
   return $element;
@@ -965,7 +956,8 @@ function sheetnode_find_sheet($sheetname) {
     foreach (sheetnode_get_sheetfields($node->type) as $field_name => $field_info) {
       if ((!$target_field || 
            0 == strcasecmp($target_field, $field_name) || 
-           0 == strcasecmp($target_field, $field_info['instance']['label'])
+           0 == strcasecmp($target_field, $field_info['instance']['label']) ||
+           0 == strcasecmp($target_field, @$node->{$field_name}[LANGUAGE_NONE][$target_delta]['name'])
           ) &&
           !empty($node->{$field_name}[LANGUAGE_NONE][$target_delta])
       ) {
@@ -1162,5 +1154,20 @@ function sheetnode_get_sheetfields($type) {
     }
   }
   return $sheetfields;
+}
+
+/**
+ * Helper function to retrieve possible sheetfield aliases.
+ */
+function _sheetnode_sheetfield_aliases($field_name, $label, $value, $delta) {
+  $names = array();
+  $names[] = $field_name . '/' . $delta;
+  if (!empty($label)) {
+    $names[] = $label . '/' . $delta;
+  }
+  if (!empty($value['name'])) {
+    $names[] = $value['name'];
+  }
+  return $names;
 }
 
