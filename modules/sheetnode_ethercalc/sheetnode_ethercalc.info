@@ -3,3 +3,4 @@ description = EtherCalc (http://www.ethercalc.org/) integration for multi-user e
 package = Sheetnode
 dependencies[] = sheetnode
 core = 7.x
+configure = admin/config/content/sheetnode/ethercalc
