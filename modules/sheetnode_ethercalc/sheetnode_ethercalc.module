@@ -10,12 +10,12 @@ function sheetnode_ethercalc_sheetnode_plugins($value, $save_element, $context) 
     $ethercalc_port = variable_get('sheetnode_ethercalc_port', '8000');
 
     $ethercalc_path = $GLOBALS['base_url'];
-    $ethercalc_path = preg_replace('/(:\\/\\/[^\\/]+).*/', '$1', $ethercalc_path);
+    $ethercalc_path = preg_replace('/(:\\/\\/[^\\/]+).*/', '$1', $ethercalc_path, 1);
     if ($ethercalc_port) {
-        $ethercalc_path = preg_replace('/(?:\:\d+)?$/', (':' . $ethercalc_port), $ethercalc_path);
+        $ethercalc_path = preg_replace('/(?:\:\d+)?$/', (':' . $ethercalc_port), $ethercalc_path, 1);
     }
     if ($ethercalc_host) {
-        $ethercalc_path = preg_replace('/^([^:]*)/', $ethercalc_host, $ethercalc_path);
+        $ethercalc_path = preg_replace('/^([^:]*)/', $ethercalc_host, $ethercalc_path, 1);
     }
 
     drupal_add_js($ethercalc_path . '/socket.io/socket.io.js#',    array('weight' => 10));
