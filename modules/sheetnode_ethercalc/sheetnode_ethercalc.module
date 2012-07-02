@@ -20,8 +20,9 @@ function sheetnode_ethercalc_sheetnode_plugins($value, $save_element, $context) 
 
     drupal_add_js($ethercalc_path . '/socket.io/socket.io.js#',    array('weight' => 10));
     drupal_add_js($ethercalc_path . '/zappa/zappa.js#',            array('weight' => 10));
-    drupal_add_js($ethercalc_path . '/player-broadcast.js#',       array('weight' => 10));
-    drupal_add_js($ethercalc_path . '/player.js#',                 array('weight' => 10));
+    drupal_add_js($ethercalc_path . '/static/md5.js#',             array('weight' => 10));
+    drupal_add_js($ethercalc_path . '/player/broadcast.js#',       array('weight' => 10));
+    drupal_add_js($ethercalc_path . '/player/main.js#',            array('weight' => 10));
   }
 }
 
